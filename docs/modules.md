@@ -1,0 +1,50 @@
+# Module Configuration
+
+Spaghetti Desk is designed as a component-wise control center. A deployment can
+enable only the modules that exist in that environment and choose which module
+widgets appear on the overview.
+
+The first public implementation keeps the module registry in
+`frontend/src/moduleConfig.ts`.
+
+## Current App Views
+
+The sidebar is an in-app navigation surface. It switches React views and updates
+the URL hash for deep-linking, but it does not perform a full page redirect.
+
+Current dedicated views:
+
+- Overview
+- Services
+- VMs
+- Agents
+
+## Feature Modules
+
+Each feature module has:
+
+- `enabled`: whether the module is available in this deployment
+- `showInOverview`: whether its default overview widget should appear
+- `description`: operator-facing purpose text
+
+If a module is disabled, related navigation items and overview widgets are
+removed from the UI. For example, a deployment without VM inventory can disable
+the `vms` module and the VMs page/widget disappears.
+
+## Overview Widgets
+
+Overview widgets are selected from a registry. Users can customize the visible
+widgets in the UI; the selection is stored in browser local storage for now.
+
+This lets an operator build an overview from pieces such as:
+
+- Runtime model
+- Services snapshot
+- VM ownership
+- License renewals
+- Permission risk
+- Agent activity
+
+Later, a backend-backed user preference store can replace local storage without
+changing the module registry concept.
+

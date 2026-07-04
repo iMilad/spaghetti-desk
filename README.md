@@ -19,6 +19,13 @@ the stack.
 - Agent sessions and automation outcomes
 - Audited action requests and script results
 
+## Component-Wise Modules
+
+Spaghetti Desk is built as a component-wise app. Deployments can enable only the
+modules they need and choose which widgets appear on the overview. The first
+module registry lives in `frontend/src/moduleConfig.ts`; see
+`docs/modules.md`.
+
 ## Architecture
 
 ```text
@@ -126,4 +133,3 @@ Private data must stay out of this repository:
 ## License
 
 MIT
-

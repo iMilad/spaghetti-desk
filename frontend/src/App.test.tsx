@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { Dashboard } from "./App";
 import type { DashboardData } from "./types";
@@ -71,18 +71,81 @@ const data: DashboardData = {
       risk: "Renewal owner is assigned but budget approval is pending.",
     },
   ],
-  agentSessions: [],
-  permissions: [],
+  agentSessions: [
+    {
+      id: "session-demo-001",
+      operator: "demo-operator",
+      target: "vm-demo-build-01",
+      task_summary: "Investigated stale build worker ownership using demo inventory.",
+      status: "completed",
+      started_at: "2026-07-01T09:00:00Z",
+      ended_at: "2026-07-01T09:18:00Z",
+      files_changed: ["examples/demo-data/vms.json"],
+      commands_run: ["pytest"],
+      approval_required: false,
+      outcome: "Marked ownership confidence as guessed for review.",
+    },
+  ],
+  permissions: [
+    {
+      id: "permission-demo-001",
+      principal: "platform-admin@example.invalid",
+      system: "demo-ci",
+      role: "admin",
+      risk_level: "high",
+      last_seen_at: "2026-07-01T08:00:00Z",
+    },
+  ],
 };
 
 describe("Dashboard", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.history.replaceState(null, "", "/");
+  });
+
   it("renders operational summary and inventory sections", () => {
     render(<Dashboard data={data} />);
 
-    expect(screen.getByText("Spaghetti Desk")).toBeInTheDocument();
+    expect(screen.getAllByText("Spaghetti Desk").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();
     expect(screen.getByText("Continuous Integration")).toBeInTheDocument();
     expect(screen.getByText("demo-build-01")).toBeInTheDocument();
     expect(screen.getByText("Code Quality Platform")).toBeInTheDocument();
   });
-});
 
+  it("switches screenshot navigation items as in-app pages", () => {
+    render(<Dashboard data={data} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Services" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Services" })).toBeInTheDocument();
+    expect(screen.getByText("Service inventory")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#services");
+
+    fireEvent.click(screen.getByRole("button", { name: "VMs" }));
+    expect(screen.getByRole("heading", { level: 1, name: "VMs" })).toBeInTheDocument();
+    expect(screen.getByText("VM ownership")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#vms");
+
+    fireEvent.click(screen.getByRole("button", { name: "Agents" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Agents" })).toBeInTheDocument();
+    expect(screen.getByText("Agent sessions")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#agents");
+
+    fireEvent.click(screen.getByRole("button", { name: "Overview" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();
+    expect(window.location.hash).toBe("#overview");
+  });
+
+  it("allows overview widgets to be configured from enabled modules", () => {
+    render(<Dashboard data={data} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Customize overview" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Services snapshot/i }));
+
+    expect(screen.queryByText("Continuous Integration")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Permission risk/i }));
+    expect(screen.getByText("platform-admin@example.invalid")).toBeInTheDocument();
+  });
+});
