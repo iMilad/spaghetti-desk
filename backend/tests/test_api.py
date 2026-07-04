@@ -29,6 +29,10 @@ def test_app_config_returns_public_module_config() -> None:
 
     assert payload["modules"]["services"]["enabled"] is True
     assert payload["modules"]["permissions"]["showInOverview"] is False
+    assert (
+        payload["preferences"]["overviewWidgetStorageKey"]
+        == "spaghetti-desk.overview-widgets.v1"
+    )
     assert [item["id"] for item in payload["navigationItems"]] == [
         "overview",
         "services",

@@ -12,6 +12,10 @@ Local deployments can set `SPAGHETTI_CONFIG_PATH=config/local.yaml` to merge
 private overrides on top of the public defaults. `config/local.yaml` is ignored
 by git and must not be committed.
 
+The `ui.preferences.overview_widget_storage_key` value scopes browser-local
+overview widget overrides. The backend config still owns the default widget
+set; local storage only stores a deployment-specific user override.
+
 ## Current App Views
 
 The sidebar is an in-app navigation surface. It switches React views and updates
@@ -40,8 +44,9 @@ the `vms` module and the VMs page/widget disappears.
 
 ## Overview Widgets
 
-Overview widgets are selected from a registry. Users can customize the visible
-widgets in the UI; the selection is stored in browser local storage for now.
+Overview widgets are selected from the backend-served registry. Users can
+customize the visible widgets in the UI; the selection is stored in browser
+local storage for now, under the backend-served storage key.
 
 This lets an operator build an overview from pieces such as:
 

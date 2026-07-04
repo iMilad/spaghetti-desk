@@ -45,8 +45,6 @@ type TableRow = {
   badgeIndex?: number;
 };
 
-const overviewWidgetStorageKey = "spaghetti-desk.overview-widgets";
-
 const viewDetails: Record<ViewId, { title: string; description: string }> = {
   overview: {
     title: "Overview",
@@ -172,12 +170,17 @@ export function Dashboard({
     () => getDefaultOverviewWidgetIds(appConfig),
     [appConfig],
   );
+  const overviewWidgetStorageKey = appConfig.preferences.overviewWidgetStorageKey;
   const [activeView, setActiveView] = useState<ViewId>(() =>
     getInitialView(enabledNavigationItems),
   );
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [selectedWidgetIds, setSelectedWidgetIds] = useState<OverviewWidgetId[]>(() =>
-    loadOverviewWidgetSelection(defaultOverviewWidgetIds, availableOverviewWidgetIds),
+    loadOverviewWidgetSelection(
+      overviewWidgetStorageKey,
+      defaultOverviewWidgetIds,
+      availableOverviewWidgetIds,
+    ),
   );
   const updatedAt = useMemo(() => formatTimestamp(data.summary.loaded_at), [data.summary.loaded_at]);
 
@@ -208,7 +211,7 @@ export function Dashboard({
 
   useEffect(() => {
     localStorage.setItem(overviewWidgetStorageKey, JSON.stringify(selectedWidgetIds));
-  }, [selectedWidgetIds]);
+  }, [overviewWidgetStorageKey, selectedWidgetIds]);
 
   const navigate = useCallback((view: ViewId) => {
     if (!isEnabledView(view, enabledNavigationItems)) {
@@ -1141,6 +1144,7 @@ function getInitialView(
 }
 
 function loadOverviewWidgetSelection(
+  overviewWidgetStorageKey: string,
   defaultOverviewWidgetIds: OverviewWidgetId[],
   availableOverviewWidgetIds: Set<OverviewWidgetId>,
 ): OverviewWidgetId[] {

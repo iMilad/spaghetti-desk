@@ -185,10 +185,20 @@ class OverviewWidgetConfig(BaseModel):
     )
 
 
+class PreferencesConfig(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    overview_widget_storage_key: str = Field(
+        validation_alias=AliasChoices("overview_widget_storage_key", "overviewWidgetStorageKey"),
+        serialization_alias="overviewWidgetStorageKey",
+    )
+
+
 class AppConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     modules: dict[FeatureModuleId, FeatureModuleConfig]
+    preferences: PreferencesConfig
     navigation_items: list[NavigationItemConfig] = Field(
         validation_alias=AliasChoices("navigation_items", "navigationItems"),
         serialization_alias="navigationItems",

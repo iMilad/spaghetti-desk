@@ -179,4 +179,21 @@ describe("Dashboard", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();
     expect(screen.queryByText("demo-build-01")).not.toBeInTheDocument();
   });
+
+  it("uses the runtime config storage key for overview widget overrides", () => {
+    const appConfig = {
+      ...defaultAppConfig,
+      preferences: {
+        overviewWidgetStorageKey: "spaghetti-desk.test-overview-widgets",
+      },
+    };
+    window.localStorage.setItem(
+      "spaghetti-desk.test-overview-widgets",
+      JSON.stringify(["permission-risk"]),
+    );
+
+    render(<Dashboard appConfig={appConfig} data={data} />);
+
+    expect(screen.getByText("platform-admin@example.invalid")).toBeInTheDocument();
+  });
 });

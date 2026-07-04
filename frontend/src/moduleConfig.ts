@@ -33,6 +33,9 @@ export type OverviewWidgetConfig = {
 
 export type AppConfig = {
   modules: Record<FeatureModuleId, FeatureModuleConfig>;
+  preferences: {
+    overviewWidgetStorageKey: string;
+  };
   navigationItems: NavigationItemConfig[];
   overviewWidgets: OverviewWidgetConfig[];
 };
@@ -120,6 +123,9 @@ export const overviewWidgets: OverviewWidgetConfig[] = [
 
 export const defaultAppConfig: AppConfig = {
   modules: featureModules,
+  preferences: {
+    overviewWidgetStorageKey: "spaghetti-desk.overview-widgets.v1",
+  },
   navigationItems,
   overviewWidgets,
 };
@@ -130,6 +136,7 @@ export function normalizeAppConfig(config: AppConfig): AppConfig {
       ...featureModules,
       ...config.modules,
     },
+    preferences: config.preferences ?? defaultAppConfig.preferences,
     navigationItems: config.navigationItems ?? navigationItems,
     overviewWidgets: config.overviewWidgets ?? overviewWidgets,
   };

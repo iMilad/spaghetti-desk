@@ -4,6 +4,8 @@ app:
   public_base_url: http://localhost:5173
 
 ui:
+  preferences:
+    overview_widget_storage_key: spaghetti-desk.overview-widgets.v1
   modules:
     services:
       id: services
