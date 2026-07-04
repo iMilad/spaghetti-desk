@@ -160,6 +160,34 @@ describe("Dashboard", () => {
     expect(screen.getByText("platform-admin@example.invalid")).toBeInTheDocument();
   });
 
+  it("allows overview widgets to be reordered and resized", () => {
+    render(<Dashboard data={data} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Customize overview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Make Services snapshot wide" }));
+    expect(screen.getByLabelText("Services snapshot widget")).toHaveClass("widget-wide");
+
+    fireEvent.click(screen.getByRole("button", { name: "Move VM ownership up" }));
+    const stored = JSON.parse(
+      window.localStorage.getItem(defaultAppConfig.preferences.overviewWidgetStorageKey) ?? "{}",
+    );
+    expect(stored.widgets[1]).toMatchObject({ id: "vm-ownership" });
+  });
+
+  it("filters table rows and shows an empty state", () => {
+    render(<Dashboard data={data} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Services" }));
+    const search = screen.getByRole("searchbox", { name: "Search Service inventory" });
+    fireEvent.change(search, { target: { value: "missing-service" } });
+
+    expect(screen.getByText("No matching rows")).toBeInTheDocument();
+    expect(screen.queryByText("Continuous Integration")).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "continuous" } });
+    expect(screen.getByText("Continuous Integration")).toBeInTheDocument();
+  });
+
   it("uses runtime config to remove disabled modules from navigation and overview", () => {
     const appConfig = {
       ...defaultAppConfig,

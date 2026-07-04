@@ -1,11 +1,16 @@
 import {
   Activity,
+  ArrowDown,
+  ArrowUp,
   Bot,
   Boxes,
   Database,
   KeyRound,
   LayoutDashboard,
+  Maximize2,
+  Minimize2,
   RefreshCcw,
+  Search,
   Server,
   Settings2,
   ShieldAlert,
@@ -43,6 +48,13 @@ type TableRow = {
   cells: string[];
   tone?: Tone;
   badgeIndex?: number;
+};
+
+type WidgetSize = "standard" | "wide";
+
+type OverviewWidgetPreference = {
+  id: OverviewWidgetId;
+  size: WidgetSize;
 };
 
 const viewDetails: Record<ViewId, { title: string; description: string }> = {
@@ -175,8 +187,8 @@ export function Dashboard({
     getInitialView(enabledNavigationItems),
   );
   const [customizerOpen, setCustomizerOpen] = useState(false);
-  const [selectedWidgetIds, setSelectedWidgetIds] = useState<OverviewWidgetId[]>(() =>
-    loadOverviewWidgetSelection(
+  const [widgetPreferences, setWidgetPreferences] = useState<OverviewWidgetPreference[]>(() =>
+    loadOverviewWidgetPreferences(
       overviewWidgetStorageKey,
       defaultOverviewWidgetIds,
       availableOverviewWidgetIds,
@@ -198,8 +210,8 @@ export function Dashboard({
   }, [enabledNavigationItems]);
 
   useEffect(() => {
-    setSelectedWidgetIds((current) =>
-      current.filter((widgetId) => availableOverviewWidgetIds.has(widgetId)),
+    setWidgetPreferences((current) =>
+      current.filter((preference) => availableOverviewWidgetIds.has(preference.id)),
     );
   }, [availableOverviewWidgetIds]);
 
@@ -210,8 +222,11 @@ export function Dashboard({
   }, [activeView, enabledNavigationItems]);
 
   useEffect(() => {
-    localStorage.setItem(overviewWidgetStorageKey, JSON.stringify(selectedWidgetIds));
-  }, [overviewWidgetStorageKey, selectedWidgetIds]);
+    localStorage.setItem(
+      overviewWidgetStorageKey,
+      JSON.stringify({ widgets: widgetPreferences }),
+    );
+  }, [overviewWidgetStorageKey, widgetPreferences]);
 
   const navigate = useCallback((view: ViewId) => {
     if (!isEnabledView(view, enabledNavigationItems)) {
@@ -226,20 +241,45 @@ export function Dashboard({
   }, [enabledNavigationItems]);
 
   const toggleWidget = useCallback((widgetId: OverviewWidgetId) => {
-    setSelectedWidgetIds((current) => {
-      if (current.includes(widgetId)) {
-        return current.filter((id) => id !== widgetId);
+    setWidgetPreferences((current) => {
+      if (current.some((preference) => preference.id === widgetId)) {
+        return current.filter((preference) => preference.id !== widgetId);
       }
-      return [...current, widgetId];
+      return [...current, { id: widgetId, size: "standard" }];
     });
   }, []);
 
   const resetWidgets = useCallback(() => {
-    setSelectedWidgetIds(defaultOverviewWidgetIds);
+    setWidgetPreferences(defaultOverviewWidgetIds.map((id) => ({ id, size: "standard" })));
   }, [defaultOverviewWidgetIds]);
 
-  const visibleWidgetIds = selectedWidgetIds.filter((widgetId) =>
-    availableOverviewWidgetIds.has(widgetId),
+  const moveWidget = useCallback((widgetId: OverviewWidgetId, direction: -1 | 1) => {
+    setWidgetPreferences((current) => {
+      const index = current.findIndex((preference) => preference.id === widgetId);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) {
+        return current;
+      }
+
+      const next = [...current];
+      const [preference] = next.splice(index, 1);
+      next.splice(nextIndex, 0, preference);
+      return next;
+    });
+  }, []);
+
+  const toggleWidgetSize = useCallback((widgetId: OverviewWidgetId) => {
+    setWidgetPreferences((current) =>
+      current.map((preference) =>
+        preference.id === widgetId
+          ? { ...preference, size: preference.size === "wide" ? "standard" : "wide" }
+          : preference,
+      ),
+    );
+  }, []);
+
+  const visibleWidgetPreferences = widgetPreferences.filter((preference) =>
+    availableOverviewWidgetIds.has(preference.id),
   );
 
   return (
@@ -259,12 +299,14 @@ export function Dashboard({
         <OverviewPage
           data={data}
           customizerOpen={customizerOpen}
-          selectedWidgetIds={visibleWidgetIds}
+          widgetPreferences={visibleWidgetPreferences}
           appConfig={appConfig}
           availableOverviewWidgets={availableOverviewWidgets}
           onToggleCustomizer={() => setCustomizerOpen((current) => !current)}
           onToggleWidget={toggleWidget}
+          onMoveWidget={moveWidget}
           onResetWidgets={resetWidgets}
+          onToggleWidgetSize={toggleWidgetSize}
         />
       ) : null}
       {activeView === "services" ? (
@@ -292,21 +334,25 @@ export function Dashboard({
 function OverviewPage({
   data,
   customizerOpen,
-  selectedWidgetIds,
+  widgetPreferences,
   appConfig,
   availableOverviewWidgets,
   onToggleCustomizer,
   onToggleWidget,
+  onMoveWidget,
   onResetWidgets,
+  onToggleWidgetSize,
 }: {
   data: DashboardData;
   customizerOpen: boolean;
-  selectedWidgetIds: OverviewWidgetId[];
+  widgetPreferences: OverviewWidgetPreference[];
   appConfig: AppConfig;
   availableOverviewWidgets: OverviewWidgetConfig[];
   onToggleCustomizer: () => void;
   onToggleWidget: (widgetId: OverviewWidgetId) => void;
+  onMoveWidget: (widgetId: OverviewWidgetId, direction: -1 | 1) => void;
   onResetWidgets: () => void;
+  onToggleWidgetSize: (widgetId: OverviewWidgetId) => void;
 }) {
   return (
     <>
@@ -330,18 +376,21 @@ function OverviewPage({
         <WidgetCustomizer
           modules={appConfig.modules}
           availableOverviewWidgets={availableOverviewWidgets}
-          selectedWidgetIds={selectedWidgetIds}
+          widgetPreferences={widgetPreferences}
           onToggleWidget={onToggleWidget}
+          onMoveWidget={onMoveWidget}
           onResetWidgets={onResetWidgets}
+          onToggleWidgetSize={onToggleWidgetSize}
         />
       ) : null}
 
-      {selectedWidgetIds.length > 0 ? (
+      {widgetPreferences.length > 0 ? (
         <section className="widget-grid" aria-label="Selected overview widgets">
-          {selectedWidgetIds.map((widgetId) => (
+          {widgetPreferences.map((preference) => (
             <OverviewWidget
-              key={widgetId}
-              widgetId={widgetId}
+              key={preference.id}
+              widgetId={preference.id}
+              size={preference.size}
               data={data}
               appConfig={appConfig}
             />
@@ -360,32 +409,89 @@ function OverviewPage({
 function WidgetCustomizer({
   modules,
   availableOverviewWidgets,
-  selectedWidgetIds,
+  widgetPreferences,
   onToggleWidget,
+  onMoveWidget,
   onResetWidgets,
+  onToggleWidgetSize,
 }: {
   modules: AppConfig["modules"];
   availableOverviewWidgets: OverviewWidgetConfig[];
-  selectedWidgetIds: OverviewWidgetId[];
+  widgetPreferences: OverviewWidgetPreference[];
   onToggleWidget: (widgetId: OverviewWidgetId) => void;
+  onMoveWidget: (widgetId: OverviewWidgetId, direction: -1 | 1) => void;
   onResetWidgets: () => void;
+  onToggleWidgetSize: (widgetId: OverviewWidgetId) => void;
 }) {
+  const preferenceById = new Map(widgetPreferences.map((preference) => [preference.id, preference]));
+
   return (
     <section className="customizer-panel" aria-label="Overview widget customizer">
       <div className="customizer-options">
-        {availableOverviewWidgets.map((widget) => (
-          <label className="widget-option" key={widget.id}>
-            <input
-              type="checkbox"
-              checked={selectedWidgetIds.includes(widget.id)}
-              onChange={() => onToggleWidget(widget.id)}
-            />
-            <span>
-              <strong>{widget.label}</strong>
-              <small>{widget.moduleId ? modules[widget.moduleId].description : "Core app state"}</small>
-            </span>
-          </label>
-        ))}
+        {availableOverviewWidgets.map((widget) => {
+          const preference = preferenceById.get(widget.id);
+          const selected = Boolean(preference);
+          return (
+            <div className="widget-option" key={widget.id}>
+              <label className="widget-choice">
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() => onToggleWidget(widget.id)}
+                />
+                <span>
+                  <strong>{widget.label}</strong>
+                  <small>
+                    {widget.moduleId ? modules[widget.moduleId].description : "Core app state"}
+                  </small>
+                </span>
+              </label>
+              {selected ? (
+                <div className="widget-actions" aria-label={`${widget.label} layout controls`}>
+                  <button
+                    className="mini-icon-button"
+                    type="button"
+                    aria-label={`Move ${widget.label} up`}
+                    title={`Move ${widget.label} up`}
+                    onClick={() => onMoveWidget(widget.id, -1)}
+                  >
+                    <ArrowUp aria-hidden="true" />
+                  </button>
+                  <button
+                    className="mini-icon-button"
+                    type="button"
+                    aria-label={`Move ${widget.label} down`}
+                    title={`Move ${widget.label} down`}
+                    onClick={() => onMoveWidget(widget.id, 1)}
+                  >
+                    <ArrowDown aria-hidden="true" />
+                  </button>
+                  <button
+                    className="mini-icon-button"
+                    type="button"
+                    aria-label={
+                      preference?.size === "wide"
+                        ? `Make ${widget.label} standard`
+                        : `Make ${widget.label} wide`
+                    }
+                    title={
+                      preference?.size === "wide"
+                        ? `Make ${widget.label} standard`
+                        : `Make ${widget.label} wide`
+                    }
+                    onClick={() => onToggleWidgetSize(widget.id)}
+                  >
+                    {preference?.size === "wide" ? (
+                      <Minimize2 aria-hidden="true" />
+                    ) : (
+                      <Maximize2 aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
       <button className="text-button" type="button" onClick={onResetWidgets}>
         Restore defaults
@@ -396,33 +502,42 @@ function WidgetCustomizer({
 
 function OverviewWidget({
   widgetId,
+  size,
   data,
   appConfig,
 }: {
   widgetId: OverviewWidgetId;
+  size: WidgetSize;
   data: DashboardData;
   appConfig: AppConfig;
 }) {
   switch (widgetId) {
     case "runtime-model":
-      return <RuntimeModelWidget appConfig={appConfig} />;
+      return <RuntimeModelWidget appConfig={appConfig} size={size} />;
     case "service-health":
-      return <ServiceHealthWidget data={data} />;
+      return <ServiceHealthWidget data={data} size={size} />;
     case "vm-ownership":
-      return <VMOwnershipWidget data={data} />;
+      return <VMOwnershipWidget data={data} size={size} />;
     case "license-renewals":
-      return <LicenseRenewalWidget data={data} />;
+      return <LicenseRenewalWidget data={data} size={size} />;
     case "permission-risk":
-      return <PermissionRiskWidget data={data} />;
+      return <PermissionRiskWidget data={data} size={size} />;
     case "agent-activity":
-      return <AgentActivityWidget data={data} />;
+      return <AgentActivityWidget data={data} size={size} />;
   }
 }
 
-function RuntimeModelWidget({ appConfig }: { appConfig: AppConfig }) {
+function RuntimeModelWidget({
+  appConfig,
+  size,
+}: {
+  appConfig: AppConfig;
+  size: WidgetSize;
+}) {
   return (
     <WidgetPanel
       title="Runtime model"
+      size={size}
       icon={<Database aria-hidden="true" />}
       description="Fast local reads first; collectors and actions are separate boundaries."
     >
@@ -452,10 +567,11 @@ function RuntimeModelWidget({ appConfig }: { appConfig: AppConfig }) {
   );
 }
 
-function ServiceHealthWidget({ data }: { data: DashboardData }) {
+function ServiceHealthWidget({ data, size }: { data: DashboardData; size: WidgetSize }) {
   return (
     <WidgetPanel
       title="Services snapshot"
+      size={size}
       icon={<Activity aria-hidden="true" />}
       description={`${data.summary.degraded_service_count} degraded of ${data.summary.service_count} services.`}
     >
@@ -477,7 +593,7 @@ function ServiceHealthWidget({ data }: { data: DashboardData }) {
   );
 }
 
-function VMOwnershipWidget({ data }: { data: DashboardData }) {
+function VMOwnershipWidget({ data, size }: { data: DashboardData; size: WidgetSize }) {
   const reviewRows = data.vms
     .filter((vm) => vm.review_status !== "active")
     .slice(0, 4);
@@ -486,6 +602,7 @@ function VMOwnershipWidget({ data }: { data: DashboardData }) {
   return (
     <WidgetPanel
       title="VM ownership"
+      size={size}
       icon={<Server aria-hidden="true" />}
       description={`${data.summary.review_needed_vm_count} VMs need review or cleanup.`}
     >
@@ -507,10 +624,11 @@ function VMOwnershipWidget({ data }: { data: DashboardData }) {
   );
 }
 
-function LicenseRenewalWidget({ data }: { data: DashboardData }) {
+function LicenseRenewalWidget({ data, size }: { data: DashboardData; size: WidgetSize }) {
   return (
     <WidgetPanel
       title="License renewals"
+      size={size}
       icon={<TimerReset aria-hidden="true" />}
       description={`${data.summary.renewal_review_count} renewal items need attention.`}
     >
@@ -532,10 +650,11 @@ function LicenseRenewalWidget({ data }: { data: DashboardData }) {
   );
 }
 
-function PermissionRiskWidget({ data }: { data: DashboardData }) {
+function PermissionRiskWidget({ data, size }: { data: DashboardData; size: WidgetSize }) {
   return (
     <WidgetPanel
       title="Permission risk"
+      size={size}
       icon={<KeyRound aria-hidden="true" />}
       description={`${data.summary.high_risk_permission_count} high-risk permissions detected.`}
     >
@@ -557,10 +676,11 @@ function PermissionRiskWidget({ data }: { data: DashboardData }) {
   );
 }
 
-function AgentActivityWidget({ data }: { data: DashboardData }) {
+function AgentActivityWidget({ data, size }: { data: DashboardData; size: WidgetSize }) {
   return (
     <WidgetPanel
       title="Agent activity"
+      size={size}
       icon={<Bot aria-hidden="true" />}
       description={`${data.summary.agent_sessions_needing_review} sessions need review.`}
     >
@@ -842,17 +962,22 @@ function TopBar({
 
 function WidgetPanel({
   title,
+  size,
   icon,
   description,
   children,
 }: {
   title: string;
+  size: WidgetSize;
   icon: ReactNode;
   description: string;
   children: ReactNode;
 }) {
   return (
-    <article className="widget-panel">
+    <article
+      className={`widget-panel ${size === "wide" ? "widget-wide" : ""}`}
+      aria-label={`${title} widget`}
+    >
       <div className="panel-heading">
         <span>{icon}</span>
         <div>
@@ -954,44 +1079,74 @@ const InventoryTable = memo(function InventoryTable({
   compact?: boolean;
 }) {
   const id = title.toLowerCase().replace(/\s+/g, "-");
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleRows = useMemo(() => {
+    if (compact || !normalizedQuery) {
+      return rows;
+    }
+
+    return rows.filter((row) =>
+      row.cells.some((cell) => cell.toLowerCase().includes(normalizedQuery)),
+    );
+  }, [compact, normalizedQuery, rows]);
 
   return (
     <section className={`table-panel ${compact ? "compact" : ""}`} id={id}>
       {!compact ? (
         <div className="panel-heading">
           <span>{icon}</span>
-          <h2>{title}</h2>
+          <div>
+            <h2>{title}</h2>
+          </div>
+          <label className="table-search">
+            <Search aria-hidden="true" />
+            <input
+              type="search"
+              aria-label={`Search ${title}`}
+              value={query}
+              placeholder="Search"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
         </div>
       ) : null}
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              {columns.map((column) => (
-                <th key={column}>{column}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const badgeIndex = row.badgeIndex ?? row.cells.length - 1;
-              return (
-                <tr key={row.id} className={row.tone ? `row-${row.tone}` : undefined}>
-                  {row.cells.map((cell, index) => (
-                    <td key={`${row.id}-${columns[index]}`}>
-                      {index === badgeIndex ? (
-                        <span className={`status-pill ${row.tone ?? "ok"}`}>{cell}</span>
-                      ) : (
-                        cell
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {visibleRows.length > 0 ? (
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                {columns.map((column) => (
+                  <th key={column}>{column}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRows.map((row) => {
+                const badgeIndex = row.badgeIndex ?? row.cells.length - 1;
+                return (
+                  <tr key={row.id} className={row.tone ? `row-${row.tone}` : undefined}>
+                    {row.cells.map((cell, index) => (
+                      <td key={`${row.id}-${columns[index]}`}>
+                        {index === badgeIndex ? (
+                          <span className={`status-pill ${row.tone ?? "ok"}`}>{cell}</span>
+                        ) : (
+                          cell
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="table-empty">
+          <strong>No matching rows</strong>
+          <span>{compact ? "No rows available." : "Clear the search or adjust the filter."}</span>
+        </div>
+      )}
     </section>
   );
 });
@@ -1143,32 +1298,50 @@ function getInitialView(
   return isEnabledView(hashView, enabledNavigationItems) ? hashView : "overview";
 }
 
-function loadOverviewWidgetSelection(
+function loadOverviewWidgetPreferences(
   overviewWidgetStorageKey: string,
   defaultOverviewWidgetIds: OverviewWidgetId[],
   availableOverviewWidgetIds: Set<OverviewWidgetId>,
-): OverviewWidgetId[] {
+): OverviewWidgetPreference[] {
+  const defaultPreferences = defaultOverviewWidgetIds.map((id) => ({
+    id,
+    size: "standard" as const,
+  }));
+
   if (typeof window === "undefined") {
-    return defaultOverviewWidgetIds;
+    return defaultPreferences;
   }
 
   const stored = localStorage.getItem(overviewWidgetStorageKey);
   if (!stored) {
-    return defaultOverviewWidgetIds;
+    return defaultPreferences;
   }
 
   try {
     const parsed = JSON.parse(stored);
-    if (!Array.isArray(parsed)) {
-      return defaultOverviewWidgetIds;
+    const storedWidgets = Array.isArray(parsed) ? parsed : parsed?.widgets;
+    if (!Array.isArray(storedWidgets)) {
+      return defaultPreferences;
     }
 
-    const selected = parsed.filter((widgetId): widgetId is OverviewWidgetId =>
-      availableOverviewWidgetIds.has(widgetId),
-    );
-    return selected.length > 0 ? selected : defaultOverviewWidgetIds;
+    const preferences = storedWidgets
+      .map((storedWidget): OverviewWidgetPreference | null => {
+        const widgetId =
+          typeof storedWidget === "string" ? storedWidget : storedWidget?.id;
+        if (!availableOverviewWidgetIds.has(widgetId)) {
+          return null;
+        }
+
+        return {
+          id: widgetId,
+          size: storedWidget?.size === "wide" ? "wide" : "standard",
+        };
+      })
+      .filter((preference): preference is OverviewWidgetPreference => preference !== null);
+
+    return preferences.length > 0 ? preferences : defaultPreferences;
   } catch {
-    return defaultOverviewWidgetIds;
+    return defaultPreferences;
   }
 }
 
