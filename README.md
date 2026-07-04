@@ -84,13 +84,18 @@ uv run pytest
 uv run uvicorn app.main:app --reload
 ```
 
-Frontend-only development:
+Frontend development:
 
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+
+The frontend needs the backend API to load inventory. When the app is served
+from `localhost` or `127.0.0.1` and `VITE_API_BASE_URL` is not set, it defaults
+to `http://127.0.0.1:8000`. Set `VITE_API_BASE_URL` if your backend runs
+somewhere else.
 
 ## Data Safety
 

@@ -11,15 +11,51 @@ import type {
 import { normalizeAppConfig } from "./moduleConfig";
 import type { AppConfig } from "./moduleConfig";
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
+const localBackendApiBase = "http://127.0.0.1:8000";
+const currentHostname = typeof window === "undefined" ? "" : window.location.hostname;
+const apiBase = resolveApiBase(import.meta.env.VITE_API_BASE_URL, currentHostname);
+
+export function resolveApiBase(configuredApiBase: string | undefined, hostname: string): string {
+  if (configuredApiBase !== undefined) {
+    return trimTrailingSlashes(configuredApiBase.trim());
+  }
+
+  return isLocalHost(hostname) ? localBackendApiBase : "";
+}
+
+export function buildApiUrl(path: string, base = apiBase): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${normalizedPath}`;
+}
+
+function trimTrailingSlashes(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function isLocalHost(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]"
+  );
+}
 
 async function getJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${apiBase}${path}`, {
-    headers: { Accept: "application/json" },
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(buildApiUrl(path), {
+      headers: { Accept: "application/json" },
+    });
+  } catch {
+    throw new Error(
+      `Unable to reach inventory API for ${path}. Check that the backend is running.`,
+    );
+  }
 
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+    throw new Error(`Request failed for ${path}: ${response.status} ${response.statusText}`);
   }
 
   return response.json() as Promise<T>;
