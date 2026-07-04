@@ -1,0 +1,13 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "spaghetti-desk",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false
+    }
+  },
+  "pull-request-title-pattern": "chore: release ${version}",
+  "separate-pull-requests": false
+}
+

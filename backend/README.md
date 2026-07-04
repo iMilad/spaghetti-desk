@@ -10,8 +10,7 @@ state in the background.
 ## Local Development
 
 ```bash
-python -m pip install -e ".[dev]"
-python -m pytest
-uvicorn app.main:app --reload
+uv sync --all-extras --dev
+uv run pytest
+uv run uvicorn app.main:app --reload
 ```
-

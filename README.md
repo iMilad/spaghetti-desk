@@ -79,9 +79,9 @@ Backend-only development:
 
 ```bash
 cd backend
-python -m pip install -e ".[dev]"
-python -m pytest
-uvicorn app.main:app --reload
+uv sync --all-extras --dev
+uv run pytest
+uv run uvicorn app.main:app --reload
 ```
 
 Frontend-only development:
@@ -133,3 +133,12 @@ Private data must stay out of this repository:
 ## License
 
 MIT
+
+## Versioning and Releases
+
+Spaghetti Desk uses Conventional Commits and Semantic Versioning. Release Please
+maintains `CHANGELOG.md`, opens release pull requests, creates GitHub releases,
+and tags releases as `vX.Y.Z`.
+
+Tag pushes also run the release workflow, which builds backend Python
+distributions with `uv build` and packages the frontend production bundle.
