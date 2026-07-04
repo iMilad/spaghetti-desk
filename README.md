@@ -136,9 +136,14 @@ MIT
 
 ## Versioning and Releases
 
-Spaghetti Desk uses Conventional Commits and Semantic Versioning. Release Please
-maintains `CHANGELOG.md`, opens release pull requests, creates GitHub releases,
-and tags releases as `vX.Y.Z`.
+Spaghetti Desk uses Conventional Commits and Semantic Versioning. Release state
+is tracked in `version.txt`, `.release-please-manifest.json`, and
+`CHANGELOG.md`.
 
-Tag pushes also run the release workflow, which builds backend Python
-distributions with `uv build` and packages the frontend production bundle.
+Tag pushes run the release workflow, which builds backend Python distributions
+with `uv build`, packages the frontend production bundle, and publishes GitHub
+release assets for `vX.Y.Z` tags.
+
+Release Please is configured for changelog and release-PR automation. Automatic
+release PR creation requires either the GitHub repository setting that allows
+Actions to create pull requests or a configured release token.
