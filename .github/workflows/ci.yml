@@ -29,7 +29,7 @@ jobs:
         with:
           python-version-file: ".python-version"
       - run: uv sync --locked --all-extras --dev
-      - run: uv run ruff check app tests
+      - run: uv run ruff check app tests migrations
       - run: uv run pytest
 
   frontend:

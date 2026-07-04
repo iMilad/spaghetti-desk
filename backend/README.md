@@ -14,3 +14,12 @@ uv sync --all-extras --dev
 uv run pytest
 uv run uvicorn app.main:app --reload
 ```
+
+Database migrations:
+
+```bash
+uv run alembic upgrade head
+```
+
+`SPAGHETTI_DATABASE_URL` controls the target database. Docker Compose points it
+at the local PostgreSQL service; local one-off checks can use SQLite.

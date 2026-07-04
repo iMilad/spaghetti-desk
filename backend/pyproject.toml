@@ -9,6 +9,7 @@ description = "FastAPI backend for the Spaghetti Desk DevOps Control Center."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+  "alembic>=1.13,<2",
   "apscheduler>=3.10,<4",
   "fastapi>=0.111,<1",
   "psycopg[binary]>=3.2,<4",
