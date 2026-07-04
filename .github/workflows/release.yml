@@ -56,5 +56,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            backend/dist/*
+            backend/dist/*.whl
+            backend/dist/*.tar.gz
             spaghetti-desk-frontend.tar.gz
