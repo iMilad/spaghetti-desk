@@ -15,19 +15,25 @@ import {
 import type { ReactNode } from "react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchDashboard } from "./api";
+import { fetchDashboard, fetchInitialAppData } from "./api";
 import {
-  featureModules,
+  defaultAppConfig,
   getAvailableOverviewWidgets,
   getDefaultOverviewWidgetIds,
   getEnabledNavigationItems,
 } from "./moduleConfig";
-import type { OverviewWidgetId, ViewId } from "./moduleConfig";
+import type {
+  AppConfig,
+  FeatureModuleConfig,
+  OverviewWidgetConfig,
+  OverviewWidgetId,
+  ViewId,
+} from "./moduleConfig";
 import type { AgentSession, DashboardData, License, Permission, Service, VM } from "./types";
 
 type LoadState =
   | { status: "loading" }
-  | { status: "ready"; data: DashboardData; refreshing: boolean }
+  | { status: "ready"; appConfig: AppConfig; data: DashboardData; refreshing: boolean }
   | { status: "error"; message: string };
 
 type Tone = "ok" | "warning" | "risk";
@@ -39,10 +45,6 @@ type TableRow = {
   badgeIndex?: number;
 };
 
-const enabledNavigationItems = getEnabledNavigationItems();
-const availableOverviewWidgets = getAvailableOverviewWidgets();
-const availableOverviewWidgetIds = new Set(availableOverviewWidgets.map((widget) => widget.id));
-const defaultOverviewWidgetIds = getDefaultOverviewWidgetIds();
 const overviewWidgetStorageKey = "spaghetti-desk.overview-widgets";
 
 const viewDetails: Record<ViewId, { title: string; description: string }> = {
@@ -76,9 +78,22 @@ export default function App() {
       );
     }
 
-    return fetchDashboard()
-      .then((data) => {
-        setState({ status: "ready", data, refreshing: false });
+    const load =
+      mode === "initial"
+        ? fetchInitialAppData()
+        : fetchDashboard().then((dashboard) => ({ appConfig: null, dashboard }));
+
+    return load
+      .then(({ appConfig, dashboard }) => {
+        setState((current) => {
+          if (appConfig) {
+            return { status: "ready", appConfig, data: dashboard, refreshing: false };
+          }
+
+          return current.status === "ready"
+            ? { ...current, data: dashboard, refreshing: false }
+            : current;
+        });
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : "Unable to load dashboard";
@@ -112,28 +127,55 @@ export default function App() {
     );
   }
 
-  return <Dashboard data={state.data} refreshing={state.refreshing} onRefresh={refresh} />;
+  return (
+    <Dashboard
+      appConfig={state.appConfig}
+      data={state.data}
+      refreshing={state.refreshing}
+      onRefresh={refresh}
+    />
+  );
 }
 
 export function Dashboard({
+  appConfig = defaultAppConfig,
   data,
   refreshing = false,
   onRefresh = () => undefined,
 }: {
+  appConfig?: AppConfig;
   data: DashboardData;
   refreshing?: boolean;
   onRefresh?: () => void;
 }) {
-  const [activeView, setActiveView] = useState<ViewId>(() => getInitialView());
+  const enabledNavigationItems = useMemo(
+    () => getEnabledNavigationItems(appConfig),
+    [appConfig],
+  );
+  const availableOverviewWidgets = useMemo(
+    () => getAvailableOverviewWidgets(appConfig),
+    [appConfig],
+  );
+  const availableOverviewWidgetIds = useMemo(
+    () => new Set(availableOverviewWidgets.map((widget) => widget.id)),
+    [availableOverviewWidgets],
+  );
+  const defaultOverviewWidgetIds = useMemo(
+    () => getDefaultOverviewWidgetIds(appConfig),
+    [appConfig],
+  );
+  const [activeView, setActiveView] = useState<ViewId>(() =>
+    getInitialView(enabledNavigationItems),
+  );
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [selectedWidgetIds, setSelectedWidgetIds] = useState<OverviewWidgetId[]>(() =>
-    loadOverviewWidgetSelection(),
+    loadOverviewWidgetSelection(defaultOverviewWidgetIds, availableOverviewWidgetIds),
   );
   const updatedAt = useMemo(() => formatTimestamp(data.summary.loaded_at), [data.summary.loaded_at]);
 
   useEffect(() => {
     const syncFromLocation = () => {
-      setActiveView(getInitialView());
+      setActiveView(getInitialView(enabledNavigationItems));
     };
 
     window.addEventListener("hashchange", syncFromLocation);
@@ -142,20 +184,26 @@ export function Dashboard({
       window.removeEventListener("hashchange", syncFromLocation);
       window.removeEventListener("popstate", syncFromLocation);
     };
-  }, []);
+  }, [enabledNavigationItems]);
 
   useEffect(() => {
     setSelectedWidgetIds((current) =>
       current.filter((widgetId) => availableOverviewWidgetIds.has(widgetId)),
     );
-  }, []);
+  }, [availableOverviewWidgetIds]);
+
+  useEffect(() => {
+    if (!isEnabledView(activeView, enabledNavigationItems)) {
+      setActiveView("overview");
+    }
+  }, [activeView, enabledNavigationItems]);
 
   useEffect(() => {
     localStorage.setItem(overviewWidgetStorageKey, JSON.stringify(selectedWidgetIds));
   }, [selectedWidgetIds]);
 
   const navigate = useCallback((view: ViewId) => {
-    if (!isEnabledView(view)) {
+    if (!isEnabledView(view, enabledNavigationItems)) {
       return;
     }
 
@@ -164,7 +212,7 @@ export function Dashboard({
     if (window.location.hash !== nextHash) {
       window.history.pushState(null, "", nextHash);
     }
-  }, []);
+  }, [enabledNavigationItems]);
 
   const toggleWidget = useCallback((widgetId: OverviewWidgetId) => {
     setSelectedWidgetIds((current) => {
@@ -177,14 +225,18 @@ export function Dashboard({
 
   const resetWidgets = useCallback(() => {
     setSelectedWidgetIds(defaultOverviewWidgetIds);
-  }, []);
+  }, [defaultOverviewWidgetIds]);
 
   const visibleWidgetIds = selectedWidgetIds.filter((widgetId) =>
     availableOverviewWidgetIds.has(widgetId),
   );
 
   return (
-    <DashboardFrame activeView={activeView} onNavigate={navigate}>
+    <DashboardFrame
+      activeView={activeView}
+      navigationItems={enabledNavigationItems}
+      onNavigate={navigate}
+    >
       <TopBar
         activeView={activeView}
         updatedAt={updatedAt}
@@ -197,14 +249,22 @@ export function Dashboard({
           data={data}
           customizerOpen={customizerOpen}
           selectedWidgetIds={visibleWidgetIds}
+          appConfig={appConfig}
+          availableOverviewWidgets={availableOverviewWidgets}
           onToggleCustomizer={() => setCustomizerOpen((current) => !current)}
           onToggleWidget={toggleWidget}
           onResetWidgets={resetWidgets}
         />
       ) : null}
-      {activeView === "services" ? <ServicesPage services={data.services} /> : null}
-      {activeView === "vms" ? <VMsPage vms={data.vms} /> : null}
-      {activeView === "agents" ? <AgentsPage sessions={data.agentSessions} /> : null}
+      {activeView === "services" ? (
+        <ServicesPage moduleConfig={appConfig.modules.services} services={data.services} />
+      ) : null}
+      {activeView === "vms" ? (
+        <VMsPage moduleConfig={appConfig.modules.vms} vms={data.vms} />
+      ) : null}
+      {activeView === "agents" ? (
+        <AgentsPage moduleConfig={appConfig.modules.agents} sessions={data.agentSessions} />
+      ) : null}
     </DashboardFrame>
   );
 }
@@ -213,6 +273,8 @@ function OverviewPage({
   data,
   customizerOpen,
   selectedWidgetIds,
+  appConfig,
+  availableOverviewWidgets,
   onToggleCustomizer,
   onToggleWidget,
   onResetWidgets,
@@ -220,6 +282,8 @@ function OverviewPage({
   data: DashboardData;
   customizerOpen: boolean;
   selectedWidgetIds: OverviewWidgetId[];
+  appConfig: AppConfig;
+  availableOverviewWidgets: OverviewWidgetConfig[];
   onToggleCustomizer: () => void;
   onToggleWidget: (widgetId: OverviewWidgetId) => void;
   onResetWidgets: () => void;
@@ -244,6 +308,8 @@ function OverviewPage({
 
       {customizerOpen ? (
         <WidgetCustomizer
+          modules={appConfig.modules}
+          availableOverviewWidgets={availableOverviewWidgets}
           selectedWidgetIds={selectedWidgetIds}
           onToggleWidget={onToggleWidget}
           onResetWidgets={onResetWidgets}
@@ -253,7 +319,12 @@ function OverviewPage({
       {selectedWidgetIds.length > 0 ? (
         <section className="widget-grid" aria-label="Selected overview widgets">
           {selectedWidgetIds.map((widgetId) => (
-            <OverviewWidget key={widgetId} widgetId={widgetId} data={data} />
+            <OverviewWidget
+              key={widgetId}
+              widgetId={widgetId}
+              data={data}
+              appConfig={appConfig}
+            />
           ))}
         </section>
       ) : (
@@ -267,10 +338,14 @@ function OverviewPage({
 }
 
 function WidgetCustomizer({
+  modules,
+  availableOverviewWidgets,
   selectedWidgetIds,
   onToggleWidget,
   onResetWidgets,
 }: {
+  modules: AppConfig["modules"];
+  availableOverviewWidgets: OverviewWidgetConfig[];
   selectedWidgetIds: OverviewWidgetId[];
   onToggleWidget: (widgetId: OverviewWidgetId) => void;
   onResetWidgets: () => void;
@@ -287,7 +362,7 @@ function WidgetCustomizer({
             />
             <span>
               <strong>{widget.label}</strong>
-              <small>{widget.moduleId ? featureModules[widget.moduleId].description : "Core app state"}</small>
+              <small>{widget.moduleId ? modules[widget.moduleId].description : "Core app state"}</small>
             </span>
           </label>
         ))}
@@ -302,13 +377,15 @@ function WidgetCustomizer({
 function OverviewWidget({
   widgetId,
   data,
+  appConfig,
 }: {
   widgetId: OverviewWidgetId;
   data: DashboardData;
+  appConfig: AppConfig;
 }) {
   switch (widgetId) {
     case "runtime-model":
-      return <RuntimeModelWidget />;
+      return <RuntimeModelWidget appConfig={appConfig} />;
     case "service-health":
       return <ServiceHealthWidget data={data} />;
     case "vm-ownership":
@@ -322,7 +399,7 @@ function OverviewWidget({
   }
 }
 
-function RuntimeModelWidget() {
+function RuntimeModelWidget({ appConfig }: { appConfig: AppConfig }) {
   return (
     <WidgetPanel
       title="Runtime model"
@@ -348,7 +425,7 @@ function RuntimeModelWidget() {
         <RuntimeItem
           icon={<Boxes aria-hidden="true" />}
           label="Enabled Modules"
-          value={`${Object.values(featureModules).filter((module) => module.enabled).length} active`}
+          value={`${Object.values(appConfig.modules).filter((module) => module.enabled).length} active`}
         />
       </div>
     </WidgetPanel>
@@ -488,14 +565,20 @@ function AgentActivityWidget({ data }: { data: DashboardData }) {
   );
 }
 
-function ServicesPage({ services }: { services: Service[] }) {
+function ServicesPage({
+  moduleConfig,
+  services,
+}: {
+  moduleConfig: FeatureModuleConfig;
+  services: Service[];
+}) {
   const degraded = services.filter((service) => service.status !== "healthy").length;
 
   return (
     <section className="page-grid" aria-label="Services page">
       <FeatureIntro
-        title={featureModules.services.label}
-        description={featureModules.services.description}
+        title={moduleConfig.label}
+        description={moduleConfig.description}
         facts={[
           `${services.length} services`,
           `${degraded} degraded`,
@@ -512,15 +595,21 @@ function ServicesPage({ services }: { services: Service[] }) {
   );
 }
 
-function VMsPage({ vms }: { vms: VM[] }) {
+function VMsPage({
+  moduleConfig,
+  vms,
+}: {
+  moduleConfig: FeatureModuleConfig;
+  vms: VM[];
+}) {
   const reviewNeeded = vms.filter((vm) => vm.review_status !== "active").length;
   const unknownOwners = vms.filter((vm) => vm.ownership_confidence === "unknown").length;
 
   return (
     <section className="page-grid" aria-label="VMs page">
       <FeatureIntro
-        title={featureModules.vms.label}
-        description={featureModules.vms.description}
+        title={moduleConfig.label}
+        description={moduleConfig.description}
         facts={[
           `${vms.length} VMs`,
           `${reviewNeeded} need review`,
@@ -537,15 +626,21 @@ function VMsPage({ vms }: { vms: VM[] }) {
   );
 }
 
-function AgentsPage({ sessions }: { sessions: AgentSession[] }) {
+function AgentsPage({
+  moduleConfig,
+  sessions,
+}: {
+  moduleConfig: FeatureModuleConfig;
+  sessions: AgentSession[];
+}) {
   const needsReview = sessions.filter((session) => session.status !== "completed").length;
   const approvals = sessions.filter((session) => session.approval_required).length;
 
   return (
     <section className="page-grid" aria-label="Agents page">
       <FeatureIntro
-        title={featureModules.agents.label}
-        description={featureModules.agents.description}
+        title={moduleConfig.label}
+        description={moduleConfig.description}
         facts={[
           `${sessions.length} sessions`,
           `${needsReview} need review`,
@@ -564,10 +659,12 @@ function AgentsPage({ sessions }: { sessions: AgentSession[] }) {
 
 function DashboardFrame({
   activeView,
+  navigationItems = getEnabledNavigationItems(defaultAppConfig),
   onNavigate,
   children,
 }: {
   activeView: ViewId;
+  navigationItems?: ReturnType<typeof getEnabledNavigationItems>;
   onNavigate: (view: ViewId) => void;
   children: ReactNode;
 }) {
@@ -576,7 +673,11 @@ function DashboardFrame({
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
-      <ShellNav activeView={activeView} onNavigate={onNavigate} />
+      <ShellNav
+        activeView={activeView}
+        navigationItems={navigationItems}
+        onNavigate={onNavigate}
+      />
       <main className="app-shell" id="main-content">
         {children}
       </main>
@@ -586,9 +687,11 @@ function DashboardFrame({
 
 function ShellNav({
   activeView,
+  navigationItems,
   onNavigate,
 }: {
   activeView: ViewId;
+  navigationItems: ReturnType<typeof getEnabledNavigationItems>;
   onNavigate: (view: ViewId) => void;
 }) {
   return (
@@ -603,7 +706,7 @@ function ShellNav({
         </div>
       </div>
       <nav>
-        {enabledNavigationItems.map((item) => (
+        {navigationItems.map((item) => (
           <button
             className={`nav-item ${activeView === item.id ? "active" : ""}`}
             type="button"
@@ -923,20 +1026,28 @@ function navIcon(view: ViewId) {
   }
 }
 
-function isEnabledView(view: ViewId) {
+function isEnabledView(
+  view: ViewId,
+  enabledNavigationItems: ReturnType<typeof getEnabledNavigationItems>,
+) {
   return enabledNavigationItems.some((item) => item.id === view);
 }
 
-function getInitialView(): ViewId {
+function getInitialView(
+  enabledNavigationItems: ReturnType<typeof getEnabledNavigationItems>,
+): ViewId {
   if (typeof window === "undefined") {
     return "overview";
   }
 
   const hashView = window.location.hash.replace("#", "") as ViewId;
-  return isEnabledView(hashView) ? hashView : "overview";
+  return isEnabledView(hashView, enabledNavigationItems) ? hashView : "overview";
 }
 
-function loadOverviewWidgetSelection(): OverviewWidgetId[] {
+function loadOverviewWidgetSelection(
+  defaultOverviewWidgetIds: OverviewWidgetId[],
+  availableOverviewWidgetIds: Set<OverviewWidgetId>,
+): OverviewWidgetId[] {
   if (typeof window === "undefined") {
     return defaultOverviewWidgetIds;
   }

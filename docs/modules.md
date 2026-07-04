@@ -4,8 +4,13 @@ Spaghetti Desk is designed as a component-wise control center. A deployment can
 enable only the modules that exist in that environment and choose which module
 widgets appear on the overview.
 
-The first public implementation keeps the module registry in
-`frontend/src/moduleConfig.ts`.
+The public defaults live in `config/config.example.yaml` under `ui`. The backend
+serves that public subset from `GET /api/v1/app-config`; the frontend reads it
+once at startup and derives navigation and overview widgets from that response.
+
+Local deployments can set `SPAGHETTI_CONFIG_PATH=config/local.yaml` to merge
+private overrides on top of the public defaults. `config/local.yaml` is ignored
+by git and must not be committed.
 
 ## Current App Views
 
@@ -24,7 +29,7 @@ Current dedicated views:
 Each feature module has:
 
 - `enabled`: whether the module is available in this deployment
-- `showInOverview`: whether its default overview widget should appear
+- `show_in_overview`: whether its default overview widget should appear
 - `description`: operator-facing purpose text
 
 If a module is disabled, related navigation items and overview widgets are
@@ -46,5 +51,4 @@ This lets an operator build an overview from pieces such as:
 - Agent activity
 
 Later, a backend-backed user preference store can replace local storage without
-changing the module registry concept.
-
+changing the backend-served module registry concept.

@@ -8,6 +8,8 @@ import type {
   Service,
   VM,
 } from "./types";
+import { normalizeAppConfig } from "./moduleConfig";
+import type { AppConfig } from "./moduleConfig";
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -43,3 +45,14 @@ export async function fetchDashboard(): Promise<DashboardData> {
   };
 }
 
+export async function fetchAppConfig(): Promise<AppConfig> {
+  return normalizeAppConfig(await getJson<AppConfig>("/api/v1/app-config"));
+}
+
+export async function fetchInitialAppData(): Promise<{
+  appConfig: AppConfig;
+  dashboard: DashboardData;
+}> {
+  const [appConfig, dashboard] = await Promise.all([fetchAppConfig(), fetchDashboard()]);
+  return { appConfig, dashboard };
+}

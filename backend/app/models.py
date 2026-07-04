@@ -1,8 +1,20 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+
+FeatureModuleId = Literal["services", "vms", "licenses", "permissions", "agents"]
+ViewId = Literal["overview", "services", "vms", "agents"]
+OverviewWidgetId = Literal[
+    "runtime-model",
+    "service-health",
+    "vm-ownership",
+    "license-renewals",
+    "permission-risk",
+    "agent-activity",
+]
 
 
 class PageMeta(BaseModel):
@@ -131,3 +143,69 @@ class InventorySummary(BaseModel):
     agent_sessions_needing_review: int
     loaded_at: datetime
 
+
+class FeatureModuleConfig(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: FeatureModuleId
+    label: str
+    enabled: bool
+    show_in_overview: bool = Field(
+        validation_alias=AliasChoices("show_in_overview", "showInOverview"),
+        serialization_alias="showInOverview",
+    )
+    description: str
+
+
+class NavigationItemConfig(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: ViewId
+    label: str
+    module_id: FeatureModuleId | None = Field(
+        default=None,
+        validation_alias=AliasChoices("module_id", "moduleId"),
+        serialization_alias="moduleId",
+    )
+
+
+class OverviewWidgetConfig(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: OverviewWidgetId
+    label: str
+    module_id: FeatureModuleId | None = Field(
+        default=None,
+        validation_alias=AliasChoices("module_id", "moduleId"),
+        serialization_alias="moduleId",
+    )
+    default_visible: bool = Field(
+        validation_alias=AliasChoices("default_visible", "defaultVisible"),
+        serialization_alias="defaultVisible",
+    )
+
+
+class AppConfig(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    modules: dict[FeatureModuleId, FeatureModuleConfig]
+    navigation_items: list[NavigationItemConfig] = Field(
+        validation_alias=AliasChoices("navigation_items", "navigationItems"),
+        serialization_alias="navigationItems",
+    )
+    overview_widgets: list[OverviewWidgetConfig] = Field(
+        validation_alias=AliasChoices("overview_widgets", "overviewWidgets"),
+        serialization_alias="overviewWidgets",
+    )
+
+    @model_validator(mode="after")
+    def validate_module_references(self):
+        for module_id, module_config in self.modules.items():
+            if module_id != module_config.id:
+                raise ValueError(f"module key {module_id!r} does not match id {module_config.id!r}")
+
+        for item in [*self.navigation_items, *self.overview_widgets]:
+            if item.module_id is not None and item.module_id not in self.modules:
+                raise ValueError(f"unknown module reference {item.module_id!r}")
+
+        return self

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  featureModules,
+  defaultAppConfig,
   getAvailableOverviewWidgets,
   getDefaultOverviewWidgetIds,
   getEnabledNavigationItems,
@@ -9,23 +9,44 @@ import {
 
 describe("moduleConfig", () => {
   it("removes navigation and overview widgets when a feature module is disabled", () => {
-    const modules = {
-      ...featureModules,
-      vms: {
-        ...featureModules.vms,
-        enabled: false,
+    const appConfig = {
+      ...defaultAppConfig,
+      modules: {
+        ...defaultAppConfig.modules,
+        vms: {
+          ...defaultAppConfig.modules.vms,
+          enabled: false,
+        },
       },
     };
 
-    expect(getEnabledNavigationItems(modules).map((item) => item.id)).toEqual([
+    expect(getEnabledNavigationItems(appConfig).map((item) => item.id)).toEqual([
       "overview",
       "services",
       "agents",
     ]);
-    expect(getAvailableOverviewWidgets(modules).map((widget) => widget.id)).not.toContain(
+    expect(getAvailableOverviewWidgets(appConfig).map((widget) => widget.id)).not.toContain(
       "vm-ownership",
     );
-    expect(getDefaultOverviewWidgetIds(modules)).not.toContain("vm-ownership");
+    expect(getDefaultOverviewWidgetIds(appConfig)).not.toContain("vm-ownership");
+  });
+
+  it("uses backend-provided module overview defaults", () => {
+    const appConfig = {
+      ...defaultAppConfig,
+      modules: {
+        ...defaultAppConfig.modules,
+        permissions: {
+          ...defaultAppConfig.modules.permissions,
+          showInOverview: true,
+        },
+      },
+      overviewWidgets: defaultAppConfig.overviewWidgets.map((widget) =>
+        widget.id === "permission-risk" ? { ...widget, defaultVisible: true } : widget,
+      ),
+    };
+
+    expect(getDefaultOverviewWidgetIds(defaultAppConfig)).not.toContain("permission-risk");
+    expect(getDefaultOverviewWidgetIds(appConfig)).toContain("permission-risk");
   });
 });
-

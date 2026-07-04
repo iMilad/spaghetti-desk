@@ -6,11 +6,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
+from app.config import get_app_config
 from app.demo_data import get_inventory, get_inventory_summary
 from app.models import (
     VM,
     AgentSession,
     AgentSessionPage,
+    AppConfig,
     License,
     LicensePage,
     PageMeta,
@@ -51,6 +53,11 @@ def _filter_equal[PageItem](
 @router.get("/summary")
 def read_summary():
     return get_inventory_summary()
+
+
+@router.get("/app-config", response_model=AppConfig)
+def read_app_config():
+    return get_app_config()
 
 
 @router.get("/services", response_model=ServicePage)

@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Dashboard } from "./App";
+import { defaultAppConfig } from "./moduleConfig";
 import type { DashboardData } from "./types";
 
 const data: DashboardData = {
@@ -147,5 +148,25 @@ describe("Dashboard", () => {
 
     fireEvent.click(screen.getByRole("checkbox", { name: /Permission risk/i }));
     expect(screen.getByText("platform-admin@example.invalid")).toBeInTheDocument();
+  });
+
+  it("uses runtime config to remove disabled modules from navigation and overview", () => {
+    const appConfig = {
+      ...defaultAppConfig,
+      modules: {
+        ...defaultAppConfig.modules,
+        vms: {
+          ...defaultAppConfig.modules.vms,
+          enabled: false,
+        },
+      },
+    };
+
+    window.history.replaceState(null, "", "/#vms");
+    render(<Dashboard appConfig={appConfig} data={data} />);
+
+    expect(screen.queryByRole("button", { name: "VMs" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();
+    expect(screen.queryByText("demo-build-01")).not.toBeInTheDocument();
   });
 });

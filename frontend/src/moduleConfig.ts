@@ -31,6 +31,12 @@ export type OverviewWidgetConfig = {
   defaultVisible: boolean;
 };
 
+export type AppConfig = {
+  modules: Record<FeatureModuleId, FeatureModuleConfig>;
+  navigationItems: NavigationItemConfig[];
+  overviewWidgets: OverviewWidgetConfig[];
+};
+
 export const featureModules: Record<FeatureModuleId, FeatureModuleConfig> = {
   services: {
     id: "services",
@@ -110,40 +116,50 @@ export const overviewWidgets: OverviewWidgetConfig[] = [
   },
 ];
 
-export function getEnabledNavigationItems(
-  modules: Record<FeatureModuleId, FeatureModuleConfig> = featureModules,
-) {
-  return navigationItems.filter((item) => {
+export const defaultAppConfig: AppConfig = {
+  modules: featureModules,
+  navigationItems,
+  overviewWidgets,
+};
+
+export function normalizeAppConfig(config: AppConfig): AppConfig {
+  return {
+    modules: {
+      ...featureModules,
+      ...config.modules,
+    },
+    navigationItems: config.navigationItems ?? navigationItems,
+    overviewWidgets: config.overviewWidgets ?? overviewWidgets,
+  };
+}
+
+export function getEnabledNavigationItems(config: AppConfig = defaultAppConfig) {
+  return config.navigationItems.filter((item) => {
     if (!item.moduleId) {
       return true;
     }
-    return modules[item.moduleId].enabled;
+    return config.modules[item.moduleId].enabled;
   });
 }
 
-export function getAvailableOverviewWidgets(
-  modules: Record<FeatureModuleId, FeatureModuleConfig> = featureModules,
-) {
-  return overviewWidgets.filter((widget) => {
+export function getAvailableOverviewWidgets(config: AppConfig = defaultAppConfig) {
+  return config.overviewWidgets.filter((widget) => {
     if (!widget.moduleId) {
       return true;
     }
-    return modules[widget.moduleId].enabled;
+    return config.modules[widget.moduleId].enabled;
   });
 }
 
-export function getDefaultOverviewWidgetIds(
-  modules: Record<FeatureModuleId, FeatureModuleConfig> = featureModules,
-) {
-  return getAvailableOverviewWidgets(modules)
+export function getDefaultOverviewWidgetIds(config: AppConfig = defaultAppConfig) {
+  return getAvailableOverviewWidgets(config)
     .filter((widget) => {
       if (!widget.moduleId) {
         return widget.defaultVisible;
       }
 
-      const moduleConfig = modules[widget.moduleId];
+      const moduleConfig = config.modules[widget.moduleId];
       return widget.defaultVisible && moduleConfig.showInOverview;
     })
     .map((widget) => widget.id);
 }
-

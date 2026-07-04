@@ -22,9 +22,9 @@ the stack.
 ## Component-Wise Modules
 
 Spaghetti Desk is built as a component-wise app. Deployments can enable only the
-modules they need and choose which widgets appear on the overview. The first
-module registry lives in `frontend/src/moduleConfig.ts`; see
-`docs/modules.md`.
+modules they need and choose which widgets appear on the overview. Public
+defaults live in `config/config.example.yaml` and are served to the frontend by
+`GET /api/v1/app-config`; see `docs/modules.md`.
 
 ## Architecture
 
