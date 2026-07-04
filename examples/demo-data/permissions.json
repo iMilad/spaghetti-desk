@@ -1,0 +1,35 @@
+[
+  {
+    "id": "permission-demo-001",
+    "principal": "platform-admin@example.invalid",
+    "system": "demo-ci",
+    "role": "admin",
+    "risk_level": "high",
+    "last_seen_at": "2026-07-01T08:00:00Z"
+  },
+  {
+    "id": "permission-demo-002",
+    "principal": "team-owner@example.invalid",
+    "system": "demo-issue-tracker",
+    "role": "project-admin",
+    "risk_level": "medium",
+    "last_seen_at": "2026-06-29T10:00:00Z"
+  },
+  {
+    "id": "permission-demo-003",
+    "principal": "service-account-ci@example.invalid",
+    "system": "demo-artifacts",
+    "role": "publisher",
+    "risk_level": "medium",
+    "last_seen_at": "2026-07-02T04:00:00Z"
+  },
+  {
+    "id": "permission-demo-004",
+    "principal": "auditor@example.invalid",
+    "system": "spaghetti-desk",
+    "role": "auditor",
+    "risk_level": "low",
+    "last_seen_at": "2026-07-03T12:00:00Z"
+  }
+]
+

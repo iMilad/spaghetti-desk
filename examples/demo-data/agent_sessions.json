@@ -1,0 +1,29 @@
+[
+  {
+    "id": "session-demo-001",
+    "operator": "demo-operator",
+    "target": "vm-demo-build-01",
+    "task_summary": "Investigated stale build worker ownership using demo inventory.",
+    "status": "completed",
+    "started_at": "2026-07-01T09:00:00Z",
+    "ended_at": "2026-07-01T09:18:00Z",
+    "files_changed": ["examples/demo-data/vms.json"],
+    "commands_run": ["pytest"],
+    "approval_required": false,
+    "outcome": "Marked ownership confidence as guessed for review."
+  },
+  {
+    "id": "session-demo-002",
+    "operator": "demo-operator",
+    "target": "service-demo-ci",
+    "task_summary": "Reviewed CI service health and linked dashboard evidence.",
+    "status": "needs_review",
+    "started_at": "2026-07-02T13:30:00Z",
+    "ended_at": "2026-07-02T13:47:00Z",
+    "files_changed": [],
+    "commands_run": ["curl http://localhost:8000/healthz"],
+    "approval_required": true,
+    "outcome": "Recommended maintenance ticket before changing service state."
+  }
+]
+

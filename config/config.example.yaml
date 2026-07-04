@@ -1,0 +1,41 @@
+app:
+  name: Spaghetti Desk
+  environment: development
+  public_base_url: http://localhost:5173
+
+database:
+  url: postgresql+psycopg://spaghetti:spaghetti@postgres:5432/spaghetti
+  pool_size: 5
+  max_overflow: 10
+
+api:
+  default_page_size: 50
+  max_page_size: 100
+
+collectors:
+  enabled: false
+  default_interval_seconds: 300
+  write_to_local_inventory: true
+
+actions:
+  enabled: false
+  require_approval_by_default: true
+  audit_all_attempts: true
+
+integrations:
+  - name: demo-issue-tracker
+    type: issue-tracker
+    enabled: false
+    base_url: https://issues.example.invalid
+    auth_env_var: SPAGHETTI_DEMO_ISSUE_TRACKER_TOKEN
+  - name: demo-ci
+    type: ci
+    enabled: false
+    base_url: https://ci.example.invalid
+    auth_env_var: SPAGHETTI_DEMO_CI_TOKEN
+  - name: demo-vm-platform
+    type: vm-platform
+    enabled: false
+    base_url: https://vms.example.invalid
+    auth_env_var: SPAGHETTI_DEMO_VM_PLATFORM_TOKEN
+

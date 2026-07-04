@@ -1,0 +1,33 @@
+[
+  {
+    "id": "license-demo-code-quality",
+    "name": "Code Quality Platform",
+    "vendor": "Example Vendor",
+    "category": "product-license",
+    "owner_team": "Platform Operations",
+    "expires_on": "2027-01-15",
+    "renewal_status": "review_needed",
+    "risk": "Renewal owner is assigned but budget approval is pending."
+  },
+  {
+    "id": "license-demo-cert-wildcard",
+    "name": "Wildcard TLS Certificate",
+    "vendor": "Example Certificate Authority",
+    "category": "certificate",
+    "owner_team": "Infrastructure",
+    "expires_on": "2027-04-30",
+    "renewal_status": "scheduled",
+    "risk": "Used by multiple demo services."
+  },
+  {
+    "id": "license-demo-artifacts",
+    "name": "Artifact Repository Support",
+    "vendor": "Example Support",
+    "category": "support-contract",
+    "owner_team": "Platform Operations",
+    "expires_on": "2028-03-01",
+    "renewal_status": "active",
+    "risk": "No immediate risk."
+  }
+]
+

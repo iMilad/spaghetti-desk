@@ -1,0 +1,133 @@
+from __future__ import annotations
+
+from datetime import UTC, date, datetime
+
+from pydantic import BaseModel, Field
+
+
+class PageMeta(BaseModel):
+    total: int = Field(ge=0)
+    limit: int = Field(ge=1)
+    offset: int = Field(ge=0)
+
+
+class Service(BaseModel):
+    id: str
+    name: str
+    service_type: str
+    status: str
+    owner_team: str
+    lifecycle: str
+    version: str
+    example_url: str
+    host_id: str
+    license_id: str | None = None
+    backup_status: str
+    monitoring_status: str
+    last_maintenance: date
+    documentation_url: str
+    known_risks: list[str] = Field(default_factory=list)
+
+
+class VM(BaseModel):
+    id: str
+    name: str
+    ip_address: str
+    owner: str
+    team: str
+    purpose: str
+    environment: str
+    tags: list[str] = Field(default_factory=list)
+    cpu: int = Field(ge=1)
+    ram_gb: int = Field(ge=1)
+    disk_gb: int = Field(ge=1)
+    os: str
+    created_on: date
+    last_seen_at: datetime
+    patch_status: str
+    ownership_confidence: str
+    review_status: str
+
+
+class License(BaseModel):
+    id: str
+    name: str
+    vendor: str
+    category: str
+    owner_team: str
+    expires_on: date
+    renewal_status: str
+    risk: str
+
+
+class Permission(BaseModel):
+    id: str
+    principal: str
+    system: str
+    role: str
+    risk_level: str
+    last_seen_at: datetime
+
+
+class AgentSession(BaseModel):
+    id: str
+    operator: str
+    target: str
+    task_summary: str
+    status: str
+    started_at: datetime
+    ended_at: datetime | None = None
+    files_changed: list[str] = Field(default_factory=list)
+    commands_run: list[str] = Field(default_factory=list)
+    approval_required: bool
+    outcome: str
+
+
+class ServicePage(BaseModel):
+    meta: PageMeta
+    items: list[Service]
+
+
+class VMPage(BaseModel):
+    meta: PageMeta
+    items: list[VM]
+
+
+class LicensePage(BaseModel):
+    meta: PageMeta
+    items: list[License]
+
+
+class PermissionPage(BaseModel):
+    meta: PageMeta
+    items: list[Permission]
+
+
+class AgentSessionPage(BaseModel):
+    meta: PageMeta
+    items: list[AgentSession]
+
+
+class InventoryData(BaseModel):
+    services: list[Service]
+    vms: list[VM]
+    licenses: list[License]
+    permissions: list[Permission]
+    agent_sessions: list[AgentSession]
+    loaded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class InventorySummary(BaseModel):
+    service_count: int
+    degraded_service_count: int
+    vm_count: int
+    unknown_owner_vm_count: int
+    review_needed_vm_count: int
+    license_count: int
+    renewal_review_count: int
+    permission_count: int
+    high_risk_permission_count: int
+    agent_session_count: int
+    agent_sessions_needing_review: int
+    loaded_at: datetime
+

@@ -1,0 +1,17 @@
+# Spaghetti Desk Backend
+
+FastAPI backend for Spaghetti Desk.
+
+The initial implementation serves public-safe demo inventory from JSON files.
+That keeps the first API shape useful while preserving the intended production
+boundary: page reads should come from local state, while collectors update that
+state in the background.
+
+## Local Development
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest
+uvicorn app.main:app --reload
+```
+

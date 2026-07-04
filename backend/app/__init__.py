@@ -1,0 +1,2 @@
+"""Spaghetti Desk backend package."""
+
