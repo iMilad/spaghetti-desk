@@ -128,6 +128,16 @@ describe("Dashboard", () => {
     expect(screen.getByText("VM ownership")).toBeInTheDocument();
     expect(window.location.hash).toBe("#vms");
 
+    fireEvent.click(screen.getByRole("button", { name: "Licenses" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Licenses" })).toBeInTheDocument();
+    expect(screen.getByText("License renewals")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#licenses");
+
+    fireEvent.click(screen.getByRole("button", { name: "Permissions" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Permissions" })).toBeInTheDocument();
+    expect(screen.getByText("Permission inventory")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#permissions");
+
     fireEvent.click(screen.getByRole("button", { name: "Agents" }));
     expect(screen.getByRole("heading", { level: 1, name: "Agents" })).toBeInTheDocument();
     expect(screen.getByText("Agent sessions")).toBeInTheDocument();

@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 FeatureModuleId = Literal["services", "vms", "licenses", "permissions", "agents"]
-ViewId = Literal["overview", "services", "vms", "agents"]
+ViewId = Literal["overview", "services", "vms", "licenses", "permissions", "agents"]
 OverviewWidgetId = Literal[
     "runtime-model",
     "service-health",

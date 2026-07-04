@@ -23,6 +23,8 @@ describe("moduleConfig", () => {
     expect(getEnabledNavigationItems(appConfig).map((item) => item.id)).toEqual([
       "overview",
       "services",
+      "licenses",
+      "permissions",
       "agents",
     ]);
     expect(getAvailableOverviewWidgets(appConfig).map((widget) => widget.id)).not.toContain(

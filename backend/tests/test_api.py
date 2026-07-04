@@ -29,7 +29,14 @@ def test_app_config_returns_public_module_config() -> None:
 
     assert payload["modules"]["services"]["enabled"] is True
     assert payload["modules"]["permissions"]["showInOverview"] is False
-    assert payload["navigationItems"][0]["id"] == "overview"
+    assert [item["id"] for item in payload["navigationItems"]] == [
+        "overview",
+        "services",
+        "vms",
+        "licenses",
+        "permissions",
+        "agents",
+    ]
     assert payload["overviewWidgets"][0]["id"] == "runtime-model"
     assert "database" not in payload
     assert "integrations" not in payload

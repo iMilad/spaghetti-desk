@@ -60,6 +60,14 @@ const viewDetails: Record<ViewId, { title: string; description: string }> = {
     title: "VMs",
     description: "Dedicated VM ownership page for review status, patch state, and teams.",
   },
+  licenses: {
+    title: "Licenses",
+    description: "Dedicated renewal page for license, support, certificate, and token risk.",
+  },
+  permissions: {
+    title: "Permissions",
+    description: "Dedicated permission-risk page for stale access and privileged roles.",
+  },
   agents: {
     title: "Agents",
     description: "Dedicated agent session page for approvals, commands, and outcomes.",
@@ -261,6 +269,15 @@ export function Dashboard({
       ) : null}
       {activeView === "vms" ? (
         <VMsPage moduleConfig={appConfig.modules.vms} vms={data.vms} />
+      ) : null}
+      {activeView === "licenses" ? (
+        <LicensesPage moduleConfig={appConfig.modules.licenses} licenses={data.licenses} />
+      ) : null}
+      {activeView === "permissions" ? (
+        <PermissionsPage
+          moduleConfig={appConfig.modules.permissions}
+          permissions={data.permissions}
+        />
       ) : null}
       {activeView === "agents" ? (
         <AgentsPage moduleConfig={appConfig.modules.agents} sessions={data.agentSessions} />
@@ -626,6 +643,68 @@ function VMsPage({
   );
 }
 
+function LicensesPage({
+  moduleConfig,
+  licenses,
+}: {
+  moduleConfig: FeatureModuleConfig;
+  licenses: License[];
+}) {
+  const reviewNeeded = licenses.filter(
+    (license) => license.renewal_status !== "active",
+  ).length;
+
+  return (
+    <section className="page-grid" aria-label="Licenses page">
+      <FeatureIntro
+        title={moduleConfig.label}
+        description={moduleConfig.description}
+        facts={[
+          `${licenses.length} tracked items`,
+          `${reviewNeeded} need review`,
+          "Renewal risk first",
+        ]}
+      />
+      <InventoryTable
+        title="License renewals"
+        icon={<TimerReset aria-hidden="true" />}
+        columns={["Name", "Vendor", "Owner", "Expires", "Status", "Risk"]}
+        rows={licenseRows(licenses)}
+      />
+    </section>
+  );
+}
+
+function PermissionsPage({
+  moduleConfig,
+  permissions,
+}: {
+  moduleConfig: FeatureModuleConfig;
+  permissions: Permission[];
+}) {
+  const highRisk = permissions.filter((permission) => permission.risk_level === "high").length;
+
+  return (
+    <section className="page-grid" aria-label="Permissions page">
+      <FeatureIntro
+        title={moduleConfig.label}
+        description={moduleConfig.description}
+        facts={[
+          `${permissions.length} permissions`,
+          `${highRisk} high risk`,
+          "Review privileged access",
+        ]}
+      />
+      <InventoryTable
+        title="Permission inventory"
+        icon={<KeyRound aria-hidden="true" />}
+        columns={["Principal", "System", "Role", "Last seen", "Risk"]}
+        rows={permissionRows(permissions)}
+      />
+    </section>
+  );
+}
+
 function AgentsPage({
   moduleConfig,
   sessions,
@@ -978,10 +1057,17 @@ function licenseRows(licenses: License[], compact = false): TableRow[] {
     .map((license) => ({
       id: license.id,
       tone: license.renewal_status === "active" ? "ok" : "warning",
-      badgeIndex: compact ? 2 : 3,
+      badgeIndex: compact ? 2 : 4,
       cells: compact
         ? [license.name, license.expires_on, license.renewal_status]
-        : [license.name, license.owner_team, license.expires_on, license.renewal_status],
+        : [
+            license.name,
+            license.vendor,
+            license.owner_team,
+            license.expires_on,
+            license.renewal_status,
+            license.risk,
+          ],
     }));
 }
 
@@ -989,10 +1075,16 @@ function permissionRows(permissions: Permission[], compact = false): TableRow[] 
   return permissions.map((permission) => ({
     id: permission.id,
     tone: permission.risk_level === "high" ? "risk" : "ok",
-    badgeIndex: compact ? 2 : 3,
+    badgeIndex: compact ? 2 : 4,
     cells: compact
       ? [permission.principal, permission.system, permission.risk_level]
-      : [permission.principal, permission.system, permission.role, permission.risk_level],
+      : [
+          permission.principal,
+          permission.system,
+          permission.role,
+          formatTimestamp(permission.last_seen_at),
+          permission.risk_level,
+        ],
   }));
 }
 
@@ -1021,6 +1113,10 @@ function navIcon(view: ViewId) {
       return <Activity aria-hidden="true" />;
     case "vms":
       return <Server aria-hidden="true" />;
+    case "licenses":
+      return <TimerReset aria-hidden="true" />;
+    case "permissions":
+      return <KeyRound aria-hidden="true" />;
     case "agents":
       return <Bot aria-hidden="true" />;
   }

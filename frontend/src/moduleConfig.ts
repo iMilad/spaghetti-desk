@@ -1,6 +1,6 @@
 export type FeatureModuleId = "services" | "vms" | "licenses" | "permissions" | "agents";
 
-export type ViewId = "overview" | "services" | "vms" | "agents";
+export type ViewId = "overview" | "services" | "vms" | "licenses" | "permissions" | "agents";
 
 export type OverviewWidgetId =
   | "runtime-model"
@@ -79,6 +79,8 @@ export const navigationItems: NavigationItemConfig[] = [
   { id: "overview", label: "Overview" },
   { id: "services", label: "Services", moduleId: "services" },
   { id: "vms", label: "VMs", moduleId: "vms" },
+  { id: "licenses", label: "Licenses", moduleId: "licenses" },
+  { id: "permissions", label: "Permissions", moduleId: "permissions" },
   { id: "agents", label: "Agents", moduleId: "agents" },
 ];
 

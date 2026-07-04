@@ -22,6 +22,8 @@ Current dedicated views:
 - Overview
 - Services
 - VMs
+- Licenses
+- Permissions
 - Agents
 
 ## Feature Modules

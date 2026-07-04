@@ -44,6 +44,12 @@ ui:
     - id: vms
       label: VMs
       module_id: vms
+    - id: licenses
+      label: Licenses
+      module_id: licenses
+    - id: permissions
+      label: Permissions
+      module_id: permissions
     - id: agents
       label: Agents
       module_id: agents
