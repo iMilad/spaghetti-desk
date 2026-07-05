@@ -94,6 +94,17 @@ export type AgentSession = {
   outcome: string;
 };
 
+export type CollectorStatus = {
+  name: string;
+  installed: boolean;
+  enabled: boolean;
+  interval_seconds: number | null;
+};
+
+export type CollectorStatusResponse = {
+  collectors: CollectorStatus[];
+};
+
 export type DashboardData = {
   summary: InventorySummary;
   services: Service[];
@@ -101,5 +112,5 @@ export type DashboardData = {
   licenses: License[];
   permissions: Permission[];
   agentSessions: AgentSession[];
+  collectors: CollectorStatus[];
 };
-

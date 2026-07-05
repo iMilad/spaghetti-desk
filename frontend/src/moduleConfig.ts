@@ -1,6 +1,13 @@
 export type FeatureModuleId = "services" | "vms" | "licenses" | "permissions" | "agents";
 
-export type ViewId = "overview" | "services" | "vms" | "licenses" | "permissions" | "agents";
+export type ViewId =
+  | "overview"
+  | "services"
+  | "vms"
+  | "licenses"
+  | "permissions"
+  | "agents"
+  | "collectors";
 
 export type OverviewWidgetId =
   | "runtime-model"
@@ -85,6 +92,7 @@ export const navigationItems: NavigationItemConfig[] = [
   { id: "licenses", label: "Licenses", moduleId: "licenses" },
   { id: "permissions", label: "Permissions", moduleId: "permissions" },
   { id: "agents", label: "Agents", moduleId: "agents" },
+  { id: "collectors", label: "Collectors" },
 ];
 
 export const overviewWidgets: OverviewWidgetConfig[] = [

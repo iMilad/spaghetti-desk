@@ -1,14 +1,17 @@
 import {
   Activity,
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   Bot,
   Boxes,
+  CheckCircle2,
   Database,
   KeyRound,
   LayoutDashboard,
   Maximize2,
   Minimize2,
+  Plug,
   RefreshCcw,
   Search,
   Server,
@@ -34,7 +37,15 @@ import type {
   OverviewWidgetId,
   ViewId,
 } from "./moduleConfig";
-import type { AgentSession, DashboardData, License, Permission, Service, VM } from "./types";
+import type {
+  AgentSession,
+  CollectorStatus,
+  DashboardData,
+  License,
+  Permission,
+  Service,
+  VM,
+} from "./types";
 
 type LoadState =
   | { status: "loading" }
@@ -56,6 +67,8 @@ type OverviewWidgetPreference = {
   id: OverviewWidgetId;
   size: WidgetSize;
 };
+
+type NavigationItem = ReturnType<typeof getEnabledNavigationItems>[number];
 
 const viewDetails: Record<ViewId, { title: string; description: string }> = {
   overview: {
@@ -81,6 +94,10 @@ const viewDetails: Record<ViewId, { title: string; description: string }> = {
   agents: {
     title: "Agents",
     description: "Dedicated agent session page for approvals, commands, and outcomes.",
+  },
+  collectors: {
+    title: "Collectors",
+    description: "Installed plugin health, schedule state, and local sync trust.",
   },
 };
 
@@ -281,17 +298,20 @@ export function Dashboard({
   const visibleWidgetPreferences = widgetPreferences.filter((preference) =>
     availableOverviewWidgetIds.has(preference.id),
   );
+  const navBadges = useMemo(() => buildNavBadges(data), [data]);
 
   return (
     <DashboardFrame
       activeView={activeView}
       navigationItems={enabledNavigationItems}
+      navBadges={navBadges}
       onNavigate={navigate}
     >
       <TopBar
         activeView={activeView}
         updatedAt={updatedAt}
         refreshing={refreshing}
+        collectors={data.collectors}
         onRefresh={onRefresh}
       />
 
@@ -327,6 +347,7 @@ export function Dashboard({
       {activeView === "agents" ? (
         <AgentsPage moduleConfig={appConfig.modules.agents} sessions={data.agentSessions} />
       ) : null}
+      {activeView === "collectors" ? <CollectorsPage collectors={data.collectors} /> : null}
     </DashboardFrame>
   );
 }
@@ -862,11 +883,13 @@ function AgentsPage({
 function DashboardFrame({
   activeView,
   navigationItems = getEnabledNavigationItems(defaultAppConfig),
+  navBadges = {},
   onNavigate,
   children,
 }: {
   activeView: ViewId;
   navigationItems?: ReturnType<typeof getEnabledNavigationItems>;
+  navBadges?: Partial<Record<ViewId, string>>;
   onNavigate: (view: ViewId) => void;
   children: ReactNode;
 }) {
@@ -878,6 +901,7 @@ function DashboardFrame({
       <ShellNav
         activeView={activeView}
         navigationItems={navigationItems}
+        navBadges={navBadges}
         onNavigate={onNavigate}
       />
       <main className="app-shell" id="main-content">
@@ -890,37 +914,57 @@ function DashboardFrame({
 function ShellNav({
   activeView,
   navigationItems,
+  navBadges,
   onNavigate,
 }: {
   activeView: ViewId;
   navigationItems: ReturnType<typeof getEnabledNavigationItems>;
+  navBadges: Partial<Record<ViewId, string>>;
   onNavigate: (view: ViewId) => void;
 }) {
+  const groups = groupNavigationItems(navigationItems);
+
   return (
     <aside className="side-nav" aria-label="Primary">
       <div className="brand-block">
-        <div className="brand-mark" aria-hidden="true">
-          SD
-        </div>
+        <SpaghettiMark />
         <div>
           <strong>Spaghetti Desk</strong>
-          <span>Control Center</span>
+          <span>demo</span>
         </div>
       </div>
       <nav>
-        {navigationItems.map((item) => (
-          <button
-            className={`nav-item ${activeView === item.id ? "active" : ""}`}
-            type="button"
-            key={item.id}
-            aria-current={activeView === item.id ? "page" : undefined}
-            onClick={() => onNavigate(item.id)}
-          >
-            {navIcon(item.id)}
-            <span>{item.label}</span>
-          </button>
+        {groups.map((group) => (
+          <div className="nav-group" key={group.label}>
+            {group.label ? <p>{group.label}</p> : null}
+            {group.items.map((item) => (
+              <button
+                className={`nav-item ${activeView === item.id ? "active" : ""}`}
+                type="button"
+                key={item.id}
+                aria-current={activeView === item.id ? "page" : undefined}
+                onClick={() => onNavigate(item.id)}
+              >
+                {navIcon(item.id)}
+                <span>{item.label}</span>
+                {Object.prototype.hasOwnProperty.call(navBadges, item.id) ? (
+                  <em
+                    className={item.id === "collectors" ? "nav-dot" : "nav-badge"}
+                    aria-hidden="true"
+                  >
+                    {navBadges[item.id]}
+                  </em>
+                ) : null}
+              </button>
+            ))}
+          </div>
         ))}
       </nav>
+      <div className="nav-user" aria-label="Current demo user">
+        <span>OP</span>
+        <strong>operator</strong>
+        <em>admin</em>
+      </div>
     </aside>
   );
 }
@@ -929,34 +973,173 @@ function TopBar({
   activeView,
   updatedAt,
   refreshing,
+  collectors,
   onRefresh,
 }: {
   activeView: ViewId;
   updatedAt: string;
   refreshing: boolean;
+  collectors: CollectorStatus[];
   onRefresh: () => void;
 }) {
   const details = viewDetails[activeView];
+  const collectorHealth = getCollectorHealth(collectors);
 
   return (
     <header className="top-bar">
-      <div>
-        <p className="eyebrow">Spaghetti Desk</p>
-        <h1>{details.title}</h1>
-        <p className="status-line">
-          {details.description} Demo inventory loaded {updatedAt}.
-        </p>
+      <div className="breadcrumb-block">
+        <div className="title-stack">
+          <p className="breadcrumb">
+            {viewSection(activeView)} <span>/</span> <strong>{details.title}</strong>
+          </p>
+          <h1>{details.title}</h1>
+        </div>
+        <label className="global-search">
+          <Search aria-hidden="true" />
+          <input type="search" aria-label="Global search" placeholder="Search..." />
+          <kbd>/</kbd>
+        </label>
       </div>
-      <button
-        className="icon-button"
-        type="button"
-        aria-label={refreshing ? "Refreshing inventory" : "Refresh inventory"}
-        disabled={refreshing}
-        onClick={onRefresh}
-      >
-        <RefreshCcw aria-hidden="true" className={refreshing ? "spin" : undefined} />
-      </button>
+      <div className="system-truth" aria-live="polite">
+        <StatusChip tone="ok">Synced {updatedAt}</StatusChip>
+        <StatusChip tone={collectorHealth.tone}>
+          {collectorHealth.label}
+        </StatusChip>
+        <button
+          className="icon-button"
+          type="button"
+          aria-label={refreshing ? "Refreshing inventory" : "Refresh inventory"}
+          disabled={refreshing}
+          onClick={onRefresh}
+        >
+          <RefreshCcw aria-hidden="true" className={refreshing ? "spin" : undefined} />
+        </button>
+        <span className="top-avatar" aria-hidden="true">OP</span>
+      </div>
     </header>
+  );
+}
+
+function CollectorsPage({ collectors }: { collectors: CollectorStatus[] }) {
+  const installed = collectors.filter((collector) => collector.installed);
+  const available = collectors.filter((collector) => !collector.installed);
+  const enabled = collectors.filter((collector) => collector.installed && collector.enabled);
+  const attention = collectors.filter((collector) => !collector.installed || !collector.enabled);
+
+  return (
+    <section className="page-grid collectors-page" aria-label="Collectors page">
+      <FeatureIntro
+        title="Collectors"
+        description="Optional plugin adapters sync external DevOps systems into the local inventory read model."
+        facts={[
+          `${installed.length} installed`,
+          `${enabled.length} enabled`,
+          `${attention.length} need setup`,
+        ]}
+      />
+
+      <section className="collector-grid" aria-label="Collector plugin state">
+        <article className="collector-panel">
+          <div className="panel-heading">
+            <span>
+              <CheckCircle2 aria-hidden="true" />
+            </span>
+            <div>
+              <h2>Installed plugins</h2>
+              <p>Enabled plugins can schedule local sync jobs after their config is present.</p>
+            </div>
+          </div>
+          <div className="collector-list">
+            {installed.length > 0 ? (
+              installed.map((collector) => (
+                <CollectorCard collector={collector} key={collector.name} />
+              ))
+            ) : (
+              <div className="collector-empty">
+                <strong>No installed collector plugins</strong>
+                <span>Install only the adapters this deployment needs.</span>
+              </div>
+            )}
+          </div>
+        </article>
+
+        <article className="collector-panel">
+          <div className="panel-heading">
+            <span>
+              <Plug aria-hidden="true" />
+            </span>
+            <div>
+              <h2>Available - not installed</h2>
+              <p>Reference adapters stay optional so one company does not define every setup.</p>
+            </div>
+          </div>
+          <div className="collector-list">
+            {available.length > 0 ? (
+              available.map((collector) => (
+                <CollectorCard collector={collector} key={collector.name} />
+              ))
+            ) : (
+              <div className="collector-empty">
+                <strong>All declared collectors are installed</strong>
+                <span>New plugin packages can still be added later.</span>
+              </div>
+            )}
+          </div>
+        </article>
+      </section>
+
+      <section className="collector-runbook" aria-label="Collector setup guidance">
+        <div>
+          <h2>Plugin boundary</h2>
+          <p>
+            Package code lives in the public project, while real endpoints, tokens, and company
+            mappings stay in ignored local config.
+          </p>
+        </div>
+        <div>
+          <h2>Runtime rule</h2>
+          <p>
+            Pages read cached inventory first. Collectors run in the background so page loads do
+            not call external systems live.
+          </p>
+        </div>
+        <div>
+          <h2>Audit rule</h2>
+          <p>Manual retries and scheduled runs append collector run records for review.</p>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function CollectorCard({ collector }: { collector: CollectorStatus }) {
+  const tone: Tone = collector.installed && collector.enabled ? "ok" : "warning";
+  const status = collector.installed
+    ? collector.enabled
+      ? "Installed and enabled"
+      : "Installed - disabled"
+    : "Package not installed";
+
+  return (
+    <article className="collector-card">
+      <div className="collector-card-title">
+        <div>
+          <strong>{formatCollectorName(collector.name)}</strong>
+          <span>{collector.name}</span>
+        </div>
+        <StatusChip tone={tone}>{status}</StatusChip>
+      </div>
+      <dl className="collector-meta">
+        <div>
+          <dt>Schedule</dt>
+          <dd>{formatCollectorInterval(collector.interval_seconds)}</dd>
+        </div>
+        <div>
+          <dt>Config</dt>
+          <dd>{collector.installed ? "local file required" : "package install required"}</dd>
+        </div>
+      </dl>
+    </article>
   );
 }
 
@@ -1263,6 +1446,97 @@ function agentRows(sessions: AgentSession[], compact = false): TableRow[] {
   }));
 }
 
+function buildNavBadges(data: DashboardData): Partial<Record<ViewId, string>> {
+  const badges: Partial<Record<ViewId, string>> = {};
+  if (data.summary.review_needed_vm_count > 0) {
+    badges.vms = String(data.summary.review_needed_vm_count);
+  }
+  if (data.summary.renewal_review_count > 0) {
+    badges.licenses = String(data.summary.renewal_review_count);
+  }
+  if (data.summary.high_risk_permission_count > 0) {
+    badges.permissions = String(data.summary.high_risk_permission_count);
+  }
+  if (data.summary.agent_sessions_needing_review > 0) {
+    badges.agents = String(data.summary.agent_sessions_needing_review);
+  }
+  if (data.collectors.some((collector) => !collector.installed || !collector.enabled)) {
+    badges.collectors = "";
+  }
+  return badges;
+}
+
+function groupNavigationItems(navigationItems: NavigationItem[]) {
+  const byId = new Map(navigationItems.map((item) => [item.id, item]));
+  const groups: { label: string; views: ViewId[] }[] = [
+    { label: "Overview", views: ["overview"] },
+    { label: "Inventory", views: ["services", "vms", "licenses"] },
+    { label: "Governance", views: ["permissions"] },
+    { label: "Activity", views: ["agents"] },
+    { label: "System", views: ["collectors"] },
+  ];
+
+  return groups
+    .map((group) => ({
+      label: group.label,
+      items: group.views
+        .map((view) => byId.get(view))
+        .filter((item): item is NavigationItem => item !== undefined),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+function viewSection(view: ViewId) {
+  switch (view) {
+    case "overview":
+      return "Control center";
+    case "services":
+    case "vms":
+    case "licenses":
+      return "Inventory";
+    case "permissions":
+      return "Governance";
+    case "agents":
+      return "Activity";
+    case "collectors":
+      return "System";
+  }
+}
+
+function getCollectorHealth(collectors: CollectorStatus[]): { label: string; tone: Tone } {
+  if (collectors.length === 0) {
+    return { label: "No collectors", tone: "warning" };
+  }
+
+  const installed = collectors.filter((collector) => collector.installed);
+  if (installed.length === 0) {
+    return { label: "Plugins pending", tone: "warning" };
+  }
+
+  const disabled = installed.filter((collector) => !collector.enabled);
+  if (disabled.length > 0) {
+    return { label: `${disabled.length} disabled`, tone: "warning" };
+  }
+
+  return { label: "Collectors healthy", tone: "ok" };
+}
+
+function StatusChip({ tone, children }: { tone: Tone; children: ReactNode }) {
+  return <span className={`status-chip ${tone}`}>{children}</span>;
+}
+
+function SpaghettiMark() {
+  return (
+    <span className="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" focusable="false">
+        <path d="M8 19c3-8 13-8 16 0" />
+        <path d="M7 14c4-6 14-6 18 0" />
+        <path d="M10 23c2-4 10-4 12 0" />
+      </svg>
+    </span>
+  );
+}
+
 function navIcon(view: ViewId) {
   switch (view) {
     case "overview":
@@ -1277,6 +1551,8 @@ function navIcon(view: ViewId) {
       return <KeyRound aria-hidden="true" />;
     case "agents":
       return <Bot aria-hidden="true" />;
+    case "collectors":
+      return <Plug aria-hidden="true" />;
   }
 }
 
@@ -1350,6 +1626,26 @@ function ratio(value: number, total: number) {
     return 0;
   }
   return Math.min(100, Math.max(4, Math.round((value / total) * 100)));
+}
+
+function formatCollectorName(name: string) {
+  return name
+    .split(/[-_]/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatCollectorInterval(seconds: number | null) {
+  if (!seconds) {
+    return "not scheduled";
+  }
+  if (seconds % 3600 === 0) {
+    return `${seconds / 3600}h`;
+  }
+  if (seconds % 60 === 0) {
+    return `${seconds / 60}m`;
+  }
+  return `${seconds}s`;
 }
 
 function formatTimestamp(value: string) {

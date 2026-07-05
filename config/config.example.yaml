@@ -55,6 +55,8 @@ ui:
     - id: agents
       label: Agents
       module_id: agents
+    - id: collectors
+      label: Collectors
   overview_widgets:
     - id: runtime-model
       label: Runtime model

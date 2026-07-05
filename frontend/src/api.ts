@@ -1,5 +1,6 @@
 import type {
   AgentSession,
+  CollectorStatusResponse,
   DashboardData,
   InventorySummary,
   License,
@@ -62,14 +63,16 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export async function fetchDashboard(): Promise<DashboardData> {
-  const [summary, services, vms, licenses, agentSessions, permissions] = await Promise.all([
-    getJson<InventorySummary>("/api/v1/summary"),
-    getJson<Page<Service>>("/api/v1/services?limit=10"),
-    getJson<Page<VM>>("/api/v1/vms?limit=10"),
-    getJson<Page<License>>("/api/v1/licenses?limit=10"),
-    getJson<Page<AgentSession>>("/api/v1/agent-sessions?limit=10"),
-    getJson<Page<Permission>>("/api/v1/permissions?limit=10"),
-  ]);
+  const [summary, services, vms, licenses, agentSessions, permissions, collectors] =
+    await Promise.all([
+      getJson<InventorySummary>("/api/v1/summary"),
+      getJson<Page<Service>>("/api/v1/services?limit=10"),
+      getJson<Page<VM>>("/api/v1/vms?limit=10"),
+      getJson<Page<License>>("/api/v1/licenses?limit=10"),
+      getJson<Page<AgentSession>>("/api/v1/agent-sessions?limit=10"),
+      getJson<Page<Permission>>("/api/v1/permissions?limit=10"),
+      getJson<CollectorStatusResponse>("/api/v1/collectors"),
+    ]);
 
   return {
     summary,
@@ -78,6 +81,7 @@ export async function fetchDashboard(): Promise<DashboardData> {
     licenses: licenses.items,
     agentSessions: agentSessions.items,
     permissions: permissions.items,
+    collectors: collectors.collectors,
   };
 }
 

@@ -97,6 +97,14 @@ const data: DashboardData = {
       last_seen_at: "2026-07-01T08:00:00Z",
     },
   ],
+  collectors: [
+    {
+      name: "jenkins",
+      installed: false,
+      enabled: false,
+      interval_seconds: null,
+    },
+  ],
 };
 
 describe("Dashboard", () => {
@@ -142,6 +150,11 @@ describe("Dashboard", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Agents" })).toBeInTheDocument();
     expect(screen.getByText("Agent sessions")).toBeInTheDocument();
     expect(window.location.hash).toBe("#agents");
+
+    fireEvent.click(screen.getByRole("button", { name: "Collectors" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Collectors" })).toBeInTheDocument();
+    expect(screen.getByText("Available - not installed")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#collectors");
 
     fireEvent.click(screen.getByRole("button", { name: "Overview" }));
     expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();

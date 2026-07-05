@@ -26,6 +26,7 @@ describe("moduleConfig", () => {
       "licenses",
       "permissions",
       "agents",
+      "collectors",
     ]);
     expect(getAvailableOverviewWidgets(appConfig).map((widget) => widget.id)).not.toContain(
       "vm-ownership",

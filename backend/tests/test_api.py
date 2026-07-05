@@ -40,6 +40,7 @@ def test_app_config_returns_public_module_config() -> None:
         "licenses",
         "permissions",
         "agents",
+        "collectors",
     ]
     assert payload["overviewWidgets"][0]["id"] == "runtime-model"
     assert "database" not in payload
