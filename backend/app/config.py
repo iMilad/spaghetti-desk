@@ -45,7 +45,7 @@ def _deep_merge(
 
 
 @lru_cache(maxsize=8)
-def _load_app_config(config_path: str) -> AppConfig:
+def _load_runtime_config(config_path: str) -> dict[str, Any]:
     default_config = _read_yaml(_default_config_path())
     selected_path = Path(config_path)
     raw_config = default_config
@@ -53,6 +53,12 @@ def _load_app_config(config_path: str) -> AppConfig:
     if selected_path.resolve() != _default_config_path().resolve():
         raw_config = _deep_merge(default_config, _read_yaml(selected_path))
 
+    return raw_config
+
+
+@lru_cache(maxsize=8)
+def _load_app_config(config_path: str) -> AppConfig:
+    raw_config = _load_runtime_config(config_path)
     ui_config = raw_config.get("ui")
     if not isinstance(ui_config, dict):
         raise ValueError("config is missing a ui mapping")
@@ -60,9 +66,14 @@ def _load_app_config(config_path: str) -> AppConfig:
     return AppConfig.model_validate(ui_config)
 
 
+def get_runtime_config() -> dict[str, Any]:
+    return _load_runtime_config(str(_configured_config_path()))
+
+
 def get_app_config() -> AppConfig:
     return _load_app_config(str(_configured_config_path()))
 
 
 def clear_app_config_cache() -> None:
+    _load_runtime_config.cache_clear()
     _load_app_config.cache_clear()

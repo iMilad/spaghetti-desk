@@ -73,6 +73,17 @@ ui:
     assert payload["modules"]["vms"]["label"] == "VMs"
 
 
+def test_collector_status_keeps_example_plugins_disabled() -> None:
+    response = client.get("/api/v1/collectors")
+    assert response.status_code == 200
+    payload = response.json()
+
+    jenkins = next(item for item in payload["collectors"] if item["name"] == "jenkins")
+    assert jenkins["installed"] is False
+    assert jenkins["enabled"] is False
+    assert jenkins["interval_seconds"] is None
+
+
 def test_services_are_paginated_and_filterable() -> None:
     response = client.get("/api/v1/services", params={"limit": 2, "status": "healthy"})
     assert response.status_code == 200

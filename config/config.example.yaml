@@ -93,6 +93,17 @@ collectors:
   enabled: false
   default_interval_seconds: 300
   write_to_local_inventory: true
+  plugins:
+    jenkins:
+      enabled: false
+      interval_seconds: 300
+      base_url: https://jenkins.example.invalid
+      username_env: JENKINS_USERNAME
+      token_env: JENKINS_TOKEN
+      job_include_patterns: []
+      default_owner_team: Unassigned
+      timeout_seconds: 10
+      verify_tls: true
 
 actions:
   enabled: false

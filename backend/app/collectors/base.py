@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 from typing import Literal, Protocol
 from uuid import uuid4
 
+from sqlalchemy.orm import Session
+
 CollectorStatus = Literal["success", "skipped", "failed"]
 
 
@@ -14,6 +16,8 @@ class CollectorContext:
     run_id: str = field(default_factory=lambda: str(uuid4()))
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     dry_run: bool = True
+    config: Mapping[str, object] = field(default_factory=dict)
+    session: Session | None = None
 
 
 @dataclass(frozen=True)
@@ -25,6 +29,7 @@ class CollectorResult:
     duration_ms: int = 0
     message: str = ""
     metadata: Mapping[str, str] = field(default_factory=dict)
+    finished_at: datetime | None = None
 
 
 class Collector(Protocol):

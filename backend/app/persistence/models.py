@@ -125,3 +125,55 @@ class AgentSessionRecord(TimestampMixin, Base):
     commands_run: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     approval_required: Mapped[bool] = mapped_column(Boolean, nullable=False)
     outcome: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class PipelineRecord(TimestampMixin, Base):
+    __tablename__ = "pipelines"
+    __table_args__ = (
+        Index("ix_pipelines_provider_status", "provider", "status"),
+        Index("ix_pipelines_owner_team", "owner_team"),
+        Index("ix_pipelines_last_run_at", "last_run_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(80), nullable=False)
+    source_id: Mapped[str] = mapped_column(String(240), nullable=False)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    source_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    owner_team: Mapped[str] = mapped_column(String(120), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    last_run_status: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    metadata_json: Mapped[dict[str, str]] = mapped_column(
+        "metadata",
+        JSON,
+        default=dict,
+        nullable=False,
+    )
+
+
+class CollectorRunRecord(Base):
+    __tablename__ = "collector_runs"
+    __table_args__ = (
+        Index("ix_collector_runs_collector_started_at", "collector_name", "started_at"),
+        Index("ix_collector_runs_status_started_at", "status", "started_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    collector_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    records_seen: Mapped[int] = mapped_column(Integer, nullable=False)
+    records_changed: Mapped[int] = mapped_column(Integer, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict[str, str]] = mapped_column(
+        "metadata",
+        JSON,
+        default=dict,
+        nullable=False,
+    )

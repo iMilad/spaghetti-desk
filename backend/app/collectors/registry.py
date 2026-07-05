@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from time import perf_counter
 
 from app.collectors.base import Collector, CollectorContext, CollectorResult
@@ -35,14 +36,17 @@ class CollectorRegistry:
         try:
             result = collector.collect(run_context)
         except Exception as exc:  # noqa: BLE001
-            return CollectorResult(
+            result = CollectorResult(
                 collector_name=collector.name,
                 status="failed",
                 duration_ms=_elapsed_ms(started),
                 message=str(exc),
+                finished_at=datetime.now(UTC),
             )
+            _record_result(run_context, result)
+            return result
 
-        return CollectorResult(
+        normalized_result = CollectorResult(
             collector_name=result.collector_name,
             status=result.status,
             records_seen=result.records_seen,
@@ -50,7 +54,10 @@ class CollectorRegistry:
             duration_ms=result.duration_ms or _elapsed_ms(started),
             message=result.message,
             metadata=result.metadata,
+            finished_at=result.finished_at or datetime.now(UTC),
         )
+        _record_result(run_context, normalized_result)
+        return normalized_result
 
     def run_all(self, context: CollectorContext | None = None) -> list[CollectorResult]:
         run_context = context or CollectorContext()
@@ -62,3 +69,12 @@ class CollectorRegistry:
 
 def _elapsed_ms(started: float) -> int:
     return max(0, round((perf_counter() - started) * 1000))
+
+
+def _record_result(context: CollectorContext, result: CollectorResult) -> None:
+    if context.session is None:
+        return
+
+    from app.persistence.repositories import CollectorRunRepository
+
+    CollectorRunRepository(context.session).record_result(context=context, result=result)

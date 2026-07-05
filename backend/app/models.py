@@ -95,6 +95,35 @@ class AgentSession(BaseModel):
     outcome: str
 
 
+class Pipeline(BaseModel):
+    id: str
+    provider: str
+    source_id: str
+    name: str
+    source_url: str
+    owner_team: str
+    status: str
+    last_run_status: str | None = None
+    last_run_at: datetime | None = None
+    last_duration_ms: int | None = Field(default=None, ge=0)
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
+class CollectorRun(BaseModel):
+    id: str
+    run_id: str
+    collector_name: str
+    status: str
+    dry_run: bool
+    started_at: datetime
+    finished_at: datetime | None = None
+    duration_ms: int
+    records_seen: int
+    records_changed: int
+    message: str
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
 class ServicePage(BaseModel):
     meta: PageMeta
     items: list[Service]
@@ -118,6 +147,16 @@ class PermissionPage(BaseModel):
 class AgentSessionPage(BaseModel):
     meta: PageMeta
     items: list[AgentSession]
+
+
+class PipelinePage(BaseModel):
+    meta: PageMeta
+    items: list[Pipeline]
+
+
+class CollectorRunPage(BaseModel):
+    meta: PageMeta
+    items: list[CollectorRun]
 
 
 class InventoryData(BaseModel):

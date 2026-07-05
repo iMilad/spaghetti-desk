@@ -26,6 +26,12 @@ modules they need and choose which widgets appear on the overview. Public
 defaults live in `config/config.example.yaml` and are served to the frontend by
 `GET /api/v1/app-config`; see `docs/modules.md`.
 
+External-system collectors follow the same optional model. The core app
+discovers installed collector plugins, but no real external collector is enabled
+by default. For example, Jenkins support lives in `plugins/jenkins` and must be
+installed and enabled with private deployment config before it can read Jenkins
+data.
+
 ## Architecture
 
 ```text
