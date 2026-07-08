@@ -111,49 +111,61 @@ describe("Dashboard", () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.history.replaceState(null, "", "/");
+    document.documentElement.removeAttribute("data-theme");
   });
 
-  it("renders operational summary and inventory sections", () => {
+  it("renders the shell and the overview triage dashboard", () => {
     render(<Dashboard data={data} />);
 
     expect(screen.getAllByText("Spaghetti Desk").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();
-    expect(screen.getByText("Continuous Integration")).toBeInTheDocument();
-    expect(screen.getByText("demo-build-01")).toBeInTheDocument();
-    expect(screen.getByText("Code Quality Platform")).toBeInTheDocument();
+
+    // KPI strip: one tile per enabled module.
+    expect(screen.getByText("Services healthy")).toBeInTheDocument();
+    expect(screen.getByText("VMs needing review")).toBeInTheDocument();
+    expect(screen.getByText("Permission findings")).toBeInTheDocument();
+
+    // Needs-attention triage feed merges the worst items across modules.
+    expect(screen.getByText("Needs attention")).toBeInTheDocument();
+    expect(screen.getByText("Continuous Integration degraded")).toBeInTheDocument();
+    expect(screen.getByText("demo-build-01 — unreviewed")).toBeInTheDocument();
   });
 
-  it("switches screenshot navigation items as in-app pages", () => {
+  it("navigates between module screens as in-app pages", () => {
     render(<Dashboard data={data} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Services" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Services$/ }));
     expect(screen.getByRole("heading", { level: 1, name: "Services" })).toBeInTheDocument();
-    expect(screen.getByText("Service inventory")).toBeInTheDocument();
+    expect(screen.getByText("Continuous Integration")).toBeInTheDocument();
     expect(window.location.hash).toBe("#services");
 
-    fireEvent.click(screen.getByRole("button", { name: "VMs" }));
-    expect(screen.getByRole("heading", { level: 1, name: "VMs" })).toBeInTheDocument();
-    expect(screen.getByText("VM ownership")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Virtual machines/ }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Virtual machines" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("demo-build-01")).toBeInTheDocument();
     expect(window.location.hash).toBe("#vms");
 
-    fireEvent.click(screen.getByRole("button", { name: "Licenses" }));
+    fireEvent.click(screen.getByRole("button", { name: /Licenses/ }));
     expect(screen.getByRole("heading", { level: 1, name: "Licenses" })).toBeInTheDocument();
-    expect(screen.getByText("License renewals")).toBeInTheDocument();
+    expect(screen.getByText("Code Quality Platform")).toBeInTheDocument();
     expect(window.location.hash).toBe("#licenses");
 
-    fireEvent.click(screen.getByRole("button", { name: "Permissions" }));
+    fireEvent.click(screen.getByRole("button", { name: /Permissions/ }));
     expect(screen.getByRole("heading", { level: 1, name: "Permissions" })).toBeInTheDocument();
-    expect(screen.getByText("Permission inventory")).toBeInTheDocument();
+    expect(screen.getByText("platform-admin@example.invalid")).toBeInTheDocument();
     expect(window.location.hash).toBe("#permissions");
 
-    fireEvent.click(screen.getByRole("button", { name: "Agents" }));
-    expect(screen.getByRole("heading", { level: 1, name: "Agents" })).toBeInTheDocument();
-    expect(screen.getByText("Agent sessions")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Agent sessions/ }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Agent sessions" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("session-demo-001")).toBeInTheDocument();
     expect(window.location.hash).toBe("#agents");
 
-    fireEvent.click(screen.getByRole("button", { name: "Collectors" }));
+    fireEvent.click(screen.getByRole("button", { name: /Collectors/ }));
     expect(screen.getByRole("heading", { level: 1, name: "Collectors" })).toBeInTheDocument();
-    expect(screen.getByText("Available - not installed")).toBeInTheDocument();
+    expect(screen.getByText("Available — not installed")).toBeInTheDocument();
     expect(window.location.hash).toBe("#collectors");
 
     fireEvent.click(screen.getByRole("button", { name: "Overview" }));
@@ -161,39 +173,13 @@ describe("Dashboard", () => {
     expect(window.location.hash).toBe("#overview");
   });
 
-  it("allows overview widgets to be configured from enabled modules", () => {
-    render(<Dashboard data={data} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Customize overview" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /Services snapshot/i }));
-
-    expect(screen.queryByText("Continuous Integration")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("checkbox", { name: /Permission risk/i }));
-    expect(screen.getByText("platform-admin@example.invalid")).toBeInTheDocument();
-  });
-
-  it("allows overview widgets to be reordered and resized", () => {
-    render(<Dashboard data={data} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Customize overview" }));
-    fireEvent.click(screen.getByRole("button", { name: "Make Services snapshot wide" }));
-    expect(screen.getByLabelText("Services snapshot widget")).toHaveClass("widget-wide");
-
-    fireEvent.click(screen.getByRole("button", { name: "Move VM ownership up" }));
-    const stored = JSON.parse(
-      window.localStorage.getItem(defaultAppConfig.preferences.overviewWidgetStorageKey) ?? "{}",
-    );
-    expect(stored.widgets[1]).toMatchObject({ id: "vm-ownership" });
-  });
-
   it("filters table rows and shows an empty state", () => {
     render(<Dashboard data={data} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Services" }));
-    const search = screen.getByRole("searchbox", { name: "Search Service inventory" });
-    fireEvent.change(search, { target: { value: "missing-service" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Services$/ }));
+    const search = screen.getByRole("searchbox", { name: "Filter Services" });
 
+    fireEvent.change(search, { target: { value: "missing-service" } });
     expect(screen.getByText("No matching rows")).toBeInTheDocument();
     expect(screen.queryByText("Continuous Integration")).not.toBeInTheDocument();
 
@@ -201,40 +187,45 @@ describe("Dashboard", () => {
     expect(screen.getByText("Continuous Integration")).toBeInTheDocument();
   });
 
-  it("uses runtime config to remove disabled modules from navigation and overview", () => {
+  it("opens a row detail panel on selection", () => {
+    render(<Dashboard data={data} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Services$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Continuous Integration" }));
+
+    const panel = screen.getByRole("complementary", {
+      name: "Continuous Integration detail",
+    });
+    expect(panel).toBeInTheDocument();
+    expect(screen.getByText("One demo worker has unknown ownership.")).toBeInTheDocument();
+  });
+
+  it("removes navigation and KPIs for disabled modules", () => {
     const appConfig = {
       ...defaultAppConfig,
       modules: {
         ...defaultAppConfig.modules,
-        vms: {
-          ...defaultAppConfig.modules.vms,
-          enabled: false,
-        },
+        vms: { ...defaultAppConfig.modules.vms, enabled: false },
       },
     };
 
     window.history.replaceState(null, "", "/#vms");
     render(<Dashboard appConfig={appConfig} data={data} />);
 
-    expect(screen.queryByRole("button", { name: "VMs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Virtual machines/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("VMs needing review")).not.toBeInTheDocument();
+    // A disabled module's hash falls back to the overview.
     expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();
-    expect(screen.queryByText("demo-build-01")).not.toBeInTheDocument();
   });
 
-  it("uses the runtime config storage key for overview widget overrides", () => {
-    const appConfig = {
-      ...defaultAppConfig,
-      preferences: {
-        overviewWidgetStorageKey: "spaghetti-desk.test-overview-widgets",
-      },
-    };
-    window.localStorage.setItem(
-      "spaghetti-desk.test-overview-widgets",
-      JSON.stringify(["permission-risk"]),
-    );
+  it("toggles the color theme and persists it", () => {
+    render(<Dashboard data={data} />);
 
-    render(<Dashboard appConfig={appConfig} data={data} />);
+    expect(document.documentElement.getAttribute("data-theme")).not.toBe("dark");
+    fireEvent.click(screen.getByRole("button", { name: "Switch to dark theme" }));
 
-    expect(screen.getByText("platform-admin@example.invalid")).toBeInTheDocument();
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    expect(window.localStorage.getItem("spaghetti-desk.theme")).toBe("dark");
+    expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeInTheDocument();
   });
 });
