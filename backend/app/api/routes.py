@@ -4,10 +4,11 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.actions import build_action_log
 from app.collectors.plugins import list_collector_plugin_status
 from app.config import get_app_config, get_runtime_config
 from app.demo_data import get_inventory, get_inventory_summary
@@ -15,6 +16,7 @@ from app.models import (
     VM,
     ActionLog,
     ActionLogPage,
+    ActionRequestCreate,
     AgentSession,
     AgentSessionPage,
     AppConfig,
@@ -31,7 +33,12 @@ from app.models import (
     VMPage,
 )
 from app.persistence.database import get_session
-from app.persistence.repositories import CollectorRunRepository, PageResult, PipelineRepository
+from app.persistence.repositories import (
+    ActionLogRepository,
+    CollectorRunRepository,
+    PageResult,
+    PipelineRepository,
+)
 
 router = APIRouter()
 
@@ -70,6 +77,50 @@ def _page_response[PageItem, PageModel](
         meta=PageMeta(total=result.total, limit=limit, offset=offset),
         items=result.items,
     )
+
+
+def _list_local_action_logs(
+    *,
+    session: Session,
+    limit: int,
+    approval_status: str | None,
+    execution_status: str | None,
+    target_system: str | None,
+) -> list[ActionLog]:
+    demo_items = _filter_action_logs(
+        get_inventory().action_logs,
+        approval_status=approval_status,
+        execution_status=execution_status,
+        target_system=target_system,
+    )
+    try:
+        persisted = ActionLogRepository(session).list_action_logs(
+            limit=limit,
+            offset=0,
+            approval_status=approval_status,
+            execution_status=execution_status,
+            target_system=target_system,
+        )
+    except SQLAlchemyError:
+        return demo_items
+
+    by_id = {item.id: item for item in demo_items}
+    for item in persisted.items:
+        by_id[item.id] = item
+    return list(by_id.values())
+
+
+def _filter_action_logs(
+    action_logs: Sequence[ActionLog],
+    *,
+    approval_status: str | None,
+    execution_status: str | None,
+    target_system: str | None,
+) -> list[ActionLog]:
+    items: list[ActionLog] = _filter_equal(action_logs, "approval_status", approval_status)
+    items = _filter_equal(items, "execution_status", execution_status)
+    items = _filter_equal(items, "target_system", target_system)
+    return items
 
 
 @router.get("/summary")
@@ -167,23 +218,48 @@ def list_agent_sessions(
 
 @router.get("/action-logs", response_model=ActionLogPage)
 def list_action_logs(
+    session: Annotated[Session, Depends(get_session)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     approval_status: str | None = None,
     execution_status: str | None = None,
     target_system: str | None = None,
 ):
-    inventory = get_inventory()
-    items: list[ActionLog] = _filter_equal(
-        inventory.action_logs,
-        "approval_status",
-        approval_status,
+    items = _list_local_action_logs(
+        session=session,
+        limit=100,
+        approval_status=approval_status,
+        execution_status=execution_status,
+        target_system=target_system,
     )
-    items = _filter_equal(items, "execution_status", execution_status)
-    items = _filter_equal(items, "target_system", target_system)
     items = sorted(items, key=lambda item: item.requested_at, reverse=True)
     page, meta = _page_items(items, limit, offset)
     return ActionLogPage(meta=meta, items=page)
+
+
+@router.post(
+    "/action-requests",
+    response_model=ActionLog,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_action_request(
+    payload: ActionRequestCreate,
+    session: Annotated[Session, Depends(get_session)],
+):
+    action_log = build_action_log(payload)
+    try:
+        created = ActionLogRepository(session).record_action_log(action_log)
+        session.commit()
+    except SQLAlchemyError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Inventory database is not initialized for action requests. "
+                "Run `cd backend && uv run alembic upgrade head`."
+            ),
+        ) from exc
+    return created
 
 
 @router.get("/permissions", response_model=PermissionPage)

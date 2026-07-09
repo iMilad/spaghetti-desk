@@ -32,3 +32,32 @@ Future mutating operations should follow this order:
 
 The UI reads `/api/v1/action-logs` from local state. It must not trigger
 external changes during page rendering.
+
+## Create an Action Request
+
+`POST /api/v1/action-requests` records a sanitized action request and returns
+the created action log. It does not run any external command or call any
+external system.
+
+Example payload:
+
+```json
+{
+  "action_type": "vm.review.request",
+  "target_system": "spaghetti-desk",
+  "target_type": "vm",
+  "target_id": "vm-demo-build-01",
+  "requested_by": "demo-operator",
+  "summary": "Request owner review for stale demo build worker.",
+  "risk_level": "medium",
+  "parameters": {
+    "review_reason": "stale_owner",
+    "token": "demo-secret"
+  }
+}
+```
+
+Medium and high risk requests are recorded with `approval_status: pending` and
+`execution_status: blocked`. Low-risk requests are recorded as
+`approval_status: not_required` and `execution_status: not_started`. Sensitive
+parameter values are redacted before persistence.

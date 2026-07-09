@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
@@ -33,6 +33,17 @@ OverviewWidgetId = Literal[
     "permission-risk",
     "agent-activity",
     "action-audit",
+]
+ActionRiskLevel = Literal["low", "medium", "high"]
+ActionApprovalStatus = Literal["pending", "approved", "rejected", "not_required"]
+ActionExecutionStatus = Literal[
+    "not_started",
+    "queued",
+    "blocked",
+    "running",
+    "succeeded",
+    "failed",
+    "skipped",
 ]
 
 
@@ -122,20 +133,46 @@ class ActionLog(BaseModel):
     target_id: str
     requested_by: str
     requested_at: datetime
-    approval_status: str
+    approval_status: ActionApprovalStatus
     approved_by: str | None = None
     approved_at: datetime | None = None
-    execution_status: str
+    execution_status: ActionExecutionStatus
     started_at: datetime | None = None
     finished_at: datetime | None = None
     duration_ms: int | None = Field(default=None, ge=0)
-    risk_level: str
+    risk_level: ActionRiskLevel
     summary: str
     sanitized_parameters: dict[str, str] = Field(default_factory=dict)
     before_state: dict[str, str] = Field(default_factory=dict)
     after_state: dict[str, str] = Field(default_factory=dict)
     result_summary: str
     evidence_links: list[str] = Field(default_factory=list)
+
+
+class ActionRequestCreate(BaseModel):
+    action_type: str = Field(
+        min_length=3,
+        max_length=120,
+        pattern=r"^[a-z][a-z0-9_.:-]*$",
+    )
+    target_system: str = Field(
+        min_length=2,
+        max_length=120,
+        pattern=r"^[a-z][a-z0-9_.:-]*$",
+    )
+    target_type: str = Field(
+        min_length=2,
+        max_length=80,
+        pattern=r"^[a-z][a-z0-9_-]*$",
+    )
+    target_id: str = Field(min_length=1, max_length=160)
+    requested_by: str = Field(min_length=1, max_length=160)
+    summary: str = Field(min_length=5, max_length=500)
+    risk_level: ActionRiskLevel = "medium"
+    requires_approval: bool | None = None
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    before_state: dict[str, Any] = Field(default_factory=dict)
+    evidence_links: list[str] = Field(default_factory=list, max_length=10)
 
 
 class Pipeline(BaseModel):
