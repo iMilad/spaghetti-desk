@@ -8,9 +8,16 @@ import type { AppConfig } from "./moduleConfig";
 import { OverviewPage } from "./overview";
 import { DashboardFrame } from "./shell";
 import type { NavBadge, Screen } from "./shell";
-import { AgentsPage, LicensesPage, PermissionsPage, ServicesPage, VMsPage } from "./tables";
+import {
+  AgentsPage,
+  LicensesPage,
+  PermissionsPage,
+  PipelinesPage,
+  ServicesPage,
+  VMsPage,
+} from "./tables";
 import type { CollectorStatus, DashboardData } from "./types";
-import { getDensity, getTheme, setDensity, setTheme } from "./ui";
+import { getDensity, getTheme, pipelineTone, setDensity, setTheme } from "./ui";
 import type { Density, Tone } from "./ui";
 
 type LoadState =
@@ -203,6 +210,9 @@ export function Dashboard({
       {activeScreen === "services" ? (
         <ServicesPage services={data.services} loadedAt={loadedAt} />
       ) : null}
+      {activeScreen === "pipelines" ? (
+        <PipelinesPage pipelines={data.pipelines} loadedAt={loadedAt} />
+      ) : null}
       {activeScreen === "vms" ? <VMsPage vms={data.vms} loadedAt={loadedAt} /> : null}
       {activeScreen === "licenses" ? (
         <LicensesPage licenses={data.licenses} loadedAt={loadedAt} />
@@ -340,7 +350,7 @@ function LoadingScreen({
         <h1 className="sr-only">Loading</h1>
         <div className="overview">
           <div className="kpi-strip">
-            {Array.from({ length: 5 }, (_, index) => (
+            {Array.from({ length: 6 }, (_, index) => (
               <div className="kpi" key={index} aria-hidden="true">
                 <span className="skeleton" style={{ width: "60%", height: 10 }} />
                 <span className="skeleton" style={{ width: "40%", height: 22, marginTop: 8 }} />
@@ -421,6 +431,17 @@ function buildBadges(
   }
   if (appConfig.modules.permissions.enabled && s.high_risk_permission_count > 0) {
     badges.permissions = { count: s.high_risk_permission_count, tone: "risk" };
+  }
+  if (appConfig.modules.pipelines.enabled) {
+    const unhealthy = data.pipelines.filter((pipeline) => pipelineTone(pipeline.status) !== "ok");
+    if (unhealthy.length > 0) {
+      badges.pipelines = {
+        count: unhealthy.length,
+        tone: unhealthy.some((pipeline) => pipelineTone(pipeline.status) === "risk")
+          ? "risk"
+          : "warning",
+      };
+    }
   }
   return badges;
 }

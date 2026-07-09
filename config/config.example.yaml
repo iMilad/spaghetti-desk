@@ -13,6 +13,12 @@ ui:
       enabled: true
       show_in_overview: true
       description: Service catalog, ownership, maintenance, monitoring, and risk state.
+    pipelines:
+      id: pipelines
+      label: Pipelines
+      enabled: true
+      show_in_overview: true
+      description: CI/CD pipeline catalog, ownership, status, and last-run state.
     vms:
       id: vms
       label: VMs
@@ -43,6 +49,9 @@ ui:
     - id: services
       label: Services
       module_id: services
+    - id: pipelines
+      label: Pipelines
+      module_id: pipelines
     - id: vms
       label: VMs
       module_id: vms

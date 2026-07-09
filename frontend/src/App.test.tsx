@@ -87,6 +87,21 @@ const data: DashboardData = {
       outcome: "Marked ownership confidence as guessed for review.",
     },
   ],
+  pipelines: [
+    {
+      id: "jenkins:demo-pipeline",
+      provider: "jenkins",
+      source_id: "demo-pipeline",
+      name: "Demo Pipeline",
+      source_url: "https://jenkins.example.invalid/job/demo-pipeline",
+      owner_team: "Platform Operations",
+      status: "failed",
+      last_run_status: "failure",
+      last_run_at: "2026-07-03T10:00:00Z",
+      last_duration_ms: 92_000,
+      metadata: { jenkins_color: "red" },
+    },
+  ],
   permissions: [
     {
       id: "permission-demo-001",
@@ -138,12 +153,14 @@ describe("Dashboard", () => {
 
     // KPI strip: one tile per enabled module.
     expect(screen.getByText("Services healthy")).toBeInTheDocument();
+    expect(screen.getByText("Pipelines healthy")).toBeInTheDocument();
     expect(screen.getByText("VMs needing review")).toBeInTheDocument();
     expect(screen.getByText("Permission findings")).toBeInTheDocument();
 
     // Needs-attention triage feed merges the worst items across modules.
     expect(screen.getByText("Needs attention")).toBeInTheDocument();
     expect(screen.getByText("Continuous Integration degraded")).toBeInTheDocument();
+    expect(screen.getByText("Demo Pipeline failed")).toBeInTheDocument();
     expect(screen.getByText("demo-build-01 — unreviewed")).toBeInTheDocument();
   });
 
@@ -154,6 +171,12 @@ describe("Dashboard", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Services" })).toBeInTheDocument();
     expect(screen.getByText("Continuous Integration")).toBeInTheDocument();
     expect(window.location.hash).toBe("#services");
+
+    fireEvent.click(screen.getByRole("button", { name: /Pipelines/ }));
+    expect(screen.getByRole("heading", { level: 1, name: "Pipelines" })).toBeInTheDocument();
+    expect(screen.getByText("Demo Pipeline")).toBeInTheDocument();
+    expect(screen.getByText("1 m 32 s")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#pipelines");
 
     fireEvent.click(screen.getByRole("button", { name: /Virtual machines/ }));
     expect(

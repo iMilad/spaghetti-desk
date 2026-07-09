@@ -7,6 +7,7 @@ import type {
   License,
   Page,
   Permission,
+  Pipeline,
   Service,
   VM,
 } from "./types";
@@ -76,9 +77,14 @@ export async function fetchDashboard(): Promise<DashboardData> {
     meta: { total: 0, limit: 20, offset: 0 },
     items: [],
   };
+  const emptyPipelines: Page<Pipeline> = {
+    meta: { total: 0, limit: 20, offset: 0 },
+    items: [],
+  };
   const [
     summary,
     services,
+    pipelines,
     vms,
     licenses,
     agentSessions,
@@ -88,6 +94,7 @@ export async function fetchDashboard(): Promise<DashboardData> {
   ] = await Promise.all([
     getJson<InventorySummary>("/api/v1/summary"),
     getJson<Page<Service>>("/api/v1/services?limit=10"),
+    getOptionalJson<Page<Pipeline>>("/api/v1/pipelines?limit=20", emptyPipelines),
     getJson<Page<VM>>("/api/v1/vms?limit=10"),
     getJson<Page<License>>("/api/v1/licenses?limit=10"),
     getJson<Page<AgentSession>>("/api/v1/agent-sessions?limit=10"),
@@ -99,6 +106,7 @@ export async function fetchDashboard(): Promise<DashboardData> {
   return {
     summary,
     services: services.items,
+    pipelines: pipelines.items,
     vms: vms.items,
     licenses: licenses.items,
     agentSessions: agentSessions.items,

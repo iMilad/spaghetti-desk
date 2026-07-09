@@ -5,10 +5,18 @@ from typing import Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
-FeatureModuleId = Literal["services", "vms", "licenses", "permissions", "agents"]
+FeatureModuleId = Literal[
+    "services",
+    "vms",
+    "licenses",
+    "permissions",
+    "agents",
+    "pipelines",
+]
 ViewId = Literal[
     "overview",
     "services",
+    "pipelines",
     "vms",
     "licenses",
     "permissions",

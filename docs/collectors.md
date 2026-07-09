@@ -77,6 +77,10 @@ When enabled, the Jenkins collector reads Jenkins job metadata and writes
 normalized `pipeline` records to the local database. Normal dashboard/API reads
 should query the local database rather than Jenkins.
 
+The frontend exposes those local records through the Pipeline Catalog module.
+Deployments that do not use Jenkins can leave the Jenkins plugin uninstalled and
+still use the same catalog with a different collector plugin later.
+
 ## Runtime Behavior
 
 At API startup the backend reads merged runtime config, builds a collector

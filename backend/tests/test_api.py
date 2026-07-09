@@ -36,6 +36,7 @@ def test_app_config_returns_public_module_config() -> None:
     assert [item["id"] for item in payload["navigationItems"]] == [
         "overview",
         "services",
+        "pipelines",
         "vms",
         "licenses",
         "permissions",

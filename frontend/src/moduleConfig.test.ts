@@ -23,6 +23,7 @@ describe("moduleConfig", () => {
     expect(getEnabledNavigationItems(appConfig).map((item) => item.id)).toEqual([
       "overview",
       "services",
+      "pipelines",
       "licenses",
       "permissions",
       "agents",

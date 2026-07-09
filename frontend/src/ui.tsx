@@ -287,6 +287,23 @@ export function agentTone(status: string): Tone {
   }
 }
 
+export function pipelineTone(status: string): Tone {
+  switch (status) {
+    case "healthy":
+    case "success":
+      return "ok";
+    case "unstable":
+    case "warning":
+    case "degraded":
+      return "warning";
+    case "unknown":
+    case "disabled":
+      return "neutral";
+    default:
+      return "risk";
+  }
+}
+
 /** Days-left tone for renewal risk columns: ≤7 critical, ≤30 warning. */
 export function daysLeftTone(days: number | null): Tone {
   if (days === null) {

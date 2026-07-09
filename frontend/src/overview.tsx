@@ -10,6 +10,7 @@ import type {
 import {
   daysUntil,
   formatRelative,
+  pipelineTone,
   titleCase,
   toneRank,
 } from "./ui";
@@ -204,6 +205,25 @@ function buildKpis(data: DashboardData, enabled: (id: FeatureModuleId) => boolea
     });
   }
 
+  if (enabled("pipelines")) {
+    const total = data.pipelines.length;
+    const unhealthy = data.pipelines.filter((pipeline) => pipelineTone(pipeline.status) !== "ok");
+    kpis.push({
+      id: "pipelines",
+      label: "Pipelines healthy",
+      value: Math.max(0, total - unhealthy.length),
+      denom: total > 0 ? ` / ${total}` : undefined,
+      sub:
+        total === 0
+          ? "no pipelines tracked"
+          : unhealthy.length > 0
+            ? `${unhealthy.length} need attention`
+            : "all healthy",
+      subTone: unhealthy.length > 0 ? "warning" : undefined,
+      screen: "pipelines",
+    });
+  }
+
   if (enabled("permissions")) {
     const high = s.high_risk_permission_count;
     kpis.push({
@@ -316,6 +336,24 @@ function buildFindings(
         fact: formatRelative(permission.last_seen_at),
         screen: "permissions",
         age: daysSince(permission.last_seen_at),
+      });
+    }
+  }
+
+  if (enabled("pipelines")) {
+    for (const pipeline of data.pipelines) {
+      const tone = pipelineTone(pipeline.status);
+      if (tone === "ok") {
+        continue;
+      }
+      findings.push({
+        id: `pipe-${pipeline.id}`,
+        tone: tone === "neutral" ? "warning" : tone,
+        text: `${pipeline.name} ${humanStatus(pipeline.status)}`,
+        tag: "Pipelines",
+        fact: pipeline.last_run_at ? formatRelative(pipeline.last_run_at) : pipeline.provider,
+        screen: "pipelines",
+        age: pipeline.last_run_at ? daysSince(pipeline.last_run_at) : 250,
       });
     }
   }
@@ -517,6 +555,10 @@ function horizonColor(days: number): string {
 
 function activityVerb(status: string): ReactNode {
   return status === "completed" ? "completed session on" : "opened session on";
+}
+
+function humanStatus(status: string): string {
+  return status.includes("_") || status.includes("-") ? titleCase(status) : status;
 }
 
 function formatInterval(seconds: number | null): string {

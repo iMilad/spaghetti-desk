@@ -1,6 +1,7 @@
 import {
   Boxes,
   FileCheck,
+  GitBranch,
   History,
   LayoutDashboard,
   Moon,
@@ -50,6 +51,12 @@ export const screenMeta: Record<Screen, ScreenMeta> = {
     section: "Inventory",
     icon: <Package {...iconProps} />,
   },
+  pipelines: {
+    navLabel: "Pipelines",
+    title: "Pipelines",
+    section: "Inventory",
+    icon: <GitBranch {...iconProps} />,
+  },
   vms: {
     navLabel: "Virtual machines",
     title: "Virtual machines",
@@ -98,7 +105,7 @@ type NavGroup = { label: string | null; ids: Screen[] };
 
 const NAV_GROUPS: NavGroup[] = [
   { label: null, ids: ["overview"] },
-  { label: "Inventory", ids: ["services", "vms"] },
+  { label: "Inventory", ids: ["services", "pipelines", "vms"] },
   { label: "Governance", ids: ["licenses", "permissions"] },
   { label: "Activity", ids: ["agents", "audit"] },
   { label: "System", ids: ["collectors", "settings"] },

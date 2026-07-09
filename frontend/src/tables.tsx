@@ -2,7 +2,7 @@ import { Plus, Rows3, Search, SlidersHorizontal, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { AgentSession, License, Permission, Service, VM } from "./types";
+import type { AgentSession, License, Permission, Pipeline, Service, VM } from "./types";
 import {
   Avatar,
   Pill,
@@ -16,6 +16,7 @@ import {
   monitoringTone,
   ownershipTone,
   patchTone,
+  pipelineTone,
   renewalTone,
   reviewTone,
   riskTone,
@@ -593,6 +594,41 @@ function relCell(value: string | null): ReactNode {
   );
 }
 
+function formatDurationMs(value: number | null): string {
+  if (value === null) {
+    return "—";
+  }
+  if (value < 1000) {
+    return `${value} ms`;
+  }
+  const seconds = value / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(seconds >= 10 ? 0 : 1)} s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `${minutes} m ${remainingSeconds} s`;
+}
+
+function metadataList(metadata: Record<string, string>): string[] {
+  return Object.entries(metadata).map(([key, value]) => `${key}: ${value}`);
+}
+
+function pipelineSortWeight(status: string): number {
+  switch (pipelineTone(status)) {
+    case "risk":
+      return 0;
+    case "warning":
+      return 1;
+    case "info":
+      return 2;
+    case "ok":
+      return 3;
+    default:
+      return 4;
+  }
+}
+
 /* ================================================================ pages == */
 
 export function ServicesPage({
@@ -688,6 +724,130 @@ export function ServicesPage({
           { label: "Service", href: s.example_url },
         ],
         note: "Record from local database. Ownership changes are audited.",
+      })}
+    />
+  );
+}
+
+export function PipelinesPage({
+  pipelines,
+  loadedAt,
+}: {
+  pipelines: Pipeline[];
+  loadedAt: string | null;
+}) {
+  const columns: Column<Pipeline>[] = [
+    { key: "name", header: "Pipeline", value: (p) => p.name, grow: 1.7, sortable: true },
+    { key: "provider", header: "Provider", value: (p) => p.provider, mono: true, grow: 0.9 },
+    {
+      key: "owner",
+      header: "Owner",
+      value: (p) => p.owner_team,
+      cell: (p) => ownerCell(p.owner_team),
+      grow: 1.2,
+    },
+    {
+      key: "status",
+      header: "Status",
+      value: (p) => humanize(p.status),
+      cell: (p) => <Pill tone={pipelineTone(p.status)}>{humanize(p.status)}</Pill>,
+      grow: 0.9,
+      sortable: true,
+      sortValue: (p) => pipelineSortWeight(p.status),
+    },
+    {
+      key: "last_run_status",
+      header: "Last run",
+      value: (p) => humanize(p.last_run_status ?? "unknown"),
+      cell: (p) => (
+        <Pill tone={pipelineTone(p.last_run_status ?? "unknown")}>
+          {humanize(p.last_run_status ?? "unknown")}
+        </Pill>
+      ),
+      grow: 0.9,
+      priority: 2,
+    },
+    {
+      key: "last_run_at",
+      header: "Run time",
+      value: (p) => p.last_run_at ?? "",
+      cell: (p) => relCell(p.last_run_at),
+      grow: 1,
+      sortable: true,
+      sortValue: (p) => new Date(p.last_run_at ?? 0).getTime(),
+      priority: 2,
+    },
+    {
+      key: "duration",
+      header: "Duration",
+      value: (p) => formatDurationMs(p.last_duration_ms),
+      mono: true,
+      align: "end",
+      grow: 0.8,
+      sortable: true,
+      sortValue: (p) => p.last_duration_ms ?? 0,
+      priority: 3,
+    },
+  ];
+
+  const facets: Facet<Pipeline>[] = [
+    {
+      key: "provider",
+      label: "Provider",
+      options: uniq(pipelines, (p) => p.provider),
+      value: (p) => p.provider,
+    },
+    {
+      key: "status",
+      label: "Status",
+      options: uniq(pipelines, (p) => p.status),
+      value: (p) => p.status,
+    },
+    {
+      key: "owner",
+      label: "Owner",
+      options: uniq(pipelines, (p) => p.owner_team),
+      value: (p) => p.owner_team,
+    },
+  ];
+
+  return (
+    <DataTable
+      title="Pipelines"
+      unit="pipelines"
+      rows={pipelines}
+      getId={(p) => p.id}
+      columns={columns}
+      facets={facets}
+      searchPlaceholder="Filter pipelines by name, provider, owner, or status…   /"
+      asOf={loadedAt}
+      exportName="pipelines"
+      detail={(p) => ({
+        title: p.name,
+        id: p.id,
+        badges: [
+          { tone: pipelineTone(p.status), label: humanize(p.status) },
+          {
+            tone: pipelineTone(p.last_run_status ?? "unknown"),
+            label: `Last run ${humanize(p.last_run_status ?? "unknown")}`,
+          },
+        ],
+        sections: [
+          {
+            label: "State",
+            rows: [
+              { k: "Provider", v: <span className="mono">{p.provider}</span> },
+              { k: "Source ID", v: <span className="mono">{p.source_id}</span> },
+              { k: "Last run", v: p.last_run_at ? relCell(p.last_run_at) : "No run recorded" },
+              { k: "Duration", v: <span className="mono">{formatDurationMs(p.last_duration_ms)}</span> },
+            ],
+          },
+          { label: "Ownership", rows: [{ k: "Team", v: p.owner_team }] },
+        ],
+        lists: [{ label: "Collector metadata", items: metadataList(p.metadata) }],
+        links: [{ label: "Pipeline", href: p.source_url }],
+        note:
+          "Pipeline records are local inventory state written by collectors. This view does not call external CI systems.",
       })}
     />
   );

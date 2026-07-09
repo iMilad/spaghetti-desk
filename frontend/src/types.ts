@@ -94,6 +94,20 @@ export type AgentSession = {
   outcome: string;
 };
 
+export type Pipeline = {
+  id: string;
+  provider: string;
+  source_id: string;
+  name: string;
+  source_url: string;
+  owner_team: string;
+  status: string;
+  last_run_status: string | null;
+  last_run_at: string | null;
+  last_duration_ms: number | null;
+  metadata: Record<string, string>;
+};
+
 export type CollectorStatus = {
   name: string;
   installed: boolean;
@@ -127,6 +141,7 @@ export type DashboardData = {
   licenses: License[];
   permissions: Permission[];
   agentSessions: AgentSession[];
+  pipelines: Pipeline[];
   collectors: CollectorStatus[];
   collectorRuns: CollectorRun[];
 };

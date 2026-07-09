@@ -1,8 +1,15 @@
-export type FeatureModuleId = "services" | "vms" | "licenses" | "permissions" | "agents";
+export type FeatureModuleId =
+  | "services"
+  | "vms"
+  | "licenses"
+  | "permissions"
+  | "agents"
+  | "pipelines";
 
 export type ViewId =
   | "overview"
   | "services"
+  | "pipelines"
   | "vms"
   | "licenses"
   | "permissions"
@@ -55,6 +62,13 @@ export const featureModules: Record<FeatureModuleId, FeatureModuleConfig> = {
     showInOverview: true,
     description: "Service catalog, ownership, maintenance, monitoring, and risk state.",
   },
+  pipelines: {
+    id: "pipelines",
+    label: "Pipelines",
+    enabled: true,
+    showInOverview: true,
+    description: "CI/CD pipeline catalog, ownership, status, and last-run state.",
+  },
   vms: {
     id: "vms",
     label: "VMs",
@@ -88,6 +102,7 @@ export const featureModules: Record<FeatureModuleId, FeatureModuleConfig> = {
 export const navigationItems: NavigationItemConfig[] = [
   { id: "overview", label: "Overview" },
   { id: "services", label: "Services", moduleId: "services" },
+  { id: "pipelines", label: "Pipelines", moduleId: "pipelines" },
   { id: "vms", label: "VMs", moduleId: "vms" },
   { id: "licenses", label: "Licenses", moduleId: "licenses" },
   { id: "permissions", label: "Permissions", moduleId: "permissions" },

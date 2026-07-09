@@ -25,6 +25,7 @@ Current dedicated views:
 
 - Overview
 - Services
+- Pipelines
 - VMs
 - Licenses
 - Permissions
