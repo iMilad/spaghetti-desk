@@ -7,10 +7,14 @@ from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.orm import Session
 
 from app.collectors import CollectorContext, CollectorResult
-from app.models import Pipeline
+from app.models import ActionLog, Pipeline
 from app.persistence.base import Base
 from app.persistence.models import LicenseRecord, ServiceRecord, VMRecord
-from app.persistence.repositories import CollectorRunRepository, PipelineRepository
+from app.persistence.repositories import (
+    ActionLogRepository,
+    CollectorRunRepository,
+    PipelineRepository,
+)
 from app.persistence.schema import InventorySchemaNotReady, assert_collector_schema_ready
 
 
@@ -20,6 +24,7 @@ def test_inventory_metadata_creates_tables_and_indexes() -> None:
 
     inspector = inspect(engine)
     assert set(inspector.get_table_names()) == {
+        "action_logs",
         "agent_sessions",
         "collector_runs",
         "licenses",
@@ -36,6 +41,7 @@ def test_inventory_metadata_creates_tables_and_indexes() -> None:
     collector_run_indexes = {
         index["name"] for index in inspector.get_indexes("collector_runs")
     }
+    action_log_indexes = {index["name"] for index in inspector.get_indexes("action_logs")}
 
     assert "ix_services_status_owner_team" in service_indexes
     assert "ix_services_host_id" in service_indexes
@@ -46,6 +52,8 @@ def test_inventory_metadata_creates_tables_and_indexes() -> None:
     assert "ix_pipelines_provider_status" in pipeline_indexes
     assert "ix_pipelines_last_run_at" in pipeline_indexes
     assert "ix_collector_runs_collector_started_at" in collector_run_indexes
+    assert "ix_action_logs_approval_requested_at" in action_log_indexes
+    assert "ix_action_logs_target" in action_log_indexes
 
 
 def test_collector_schema_check_reports_missing_tables() -> None:
@@ -184,6 +192,59 @@ def test_pipeline_repository_upserts_collected_pipeline_records() -> None:
     assert updated is True
     assert page.total == 1
     assert page.items[0].status == "failed"
+
+
+def test_action_log_repository_records_and_filters_actions() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        repository = ActionLogRepository(session)
+        repository.record_action_log(
+            ActionLog(
+                id="action-test-001",
+                action_type="vm.review.request",
+                target_system="spaghetti-desk",
+                target_type="vm",
+                target_id="vm-demo",
+                requested_by="demo-operator",
+                requested_at=datetime(2026, 7, 2, 14, 5, tzinfo=UTC),
+                approval_status="pending",
+                execution_status="queued",
+                risk_level="medium",
+                summary="Request demo VM ownership review.",
+                sanitized_parameters={"review_reason": "stale_owner"},
+                before_state={"review_status": "stale"},
+                result_summary="Waiting for approval.",
+            )
+        )
+        repository.record_action_log(
+            ActionLog(
+                id="action-test-002",
+                action_type="permission.review.sync",
+                target_system="demo-ci",
+                target_type="permission",
+                target_id="permission-demo",
+                requested_by="demo-agent",
+                requested_at=datetime(2026, 7, 1, 8, 25, tzinfo=UTC),
+                approval_status="not_required",
+                execution_status="failed",
+                risk_level="high",
+                summary="Refresh demo permission evidence.",
+                result_summary="Dry-run failed.",
+            )
+        )
+        session.commit()
+
+        page = repository.list_action_logs(
+            limit=10,
+            offset=0,
+            approval_status="pending",
+        )
+
+    assert page.total == 1
+    assert page.items[0].id == "action-test-001"
+    assert page.items[0].sanitized_parameters["review_reason"] == "stale_owner"
 
 
 def test_collector_run_repository_returns_latest_run_per_collector() -> None:

@@ -10,6 +10,7 @@ import { DashboardFrame } from "./shell";
 import type { NavBadge, Screen } from "./shell";
 import {
   AgentsPage,
+  ActionLogsPage,
   LicensesPage,
   PermissionsPage,
   PipelinesPage,
@@ -223,6 +224,9 @@ export function Dashboard({
       {activeScreen === "agents" ? (
         <AgentsPage sessions={data.agentSessions} loadedAt={loadedAt} />
       ) : null}
+      {activeScreen === "audit" ? (
+        <ActionLogsPage actionLogs={data.actionLogs} loadedAt={loadedAt} />
+      ) : null}
       {activeScreen === "collectors" ? (
         <CollectorsPage collectors={data.collectors} runs={data.collectorRuns} />
       ) : null}
@@ -431,6 +435,13 @@ function buildBadges(
   }
   if (appConfig.modules.permissions.enabled && s.high_risk_permission_count > 0) {
     badges.permissions = { count: s.high_risk_permission_count, tone: "risk" };
+  }
+  if (appConfig.modules.audit.enabled) {
+    if (s.failed_action_count > 0) {
+      badges.audit = { count: s.failed_action_count, tone: "risk" };
+    } else if (s.pending_approval_count > 0) {
+      badges.audit = { count: s.pending_approval_count, tone: "warning" };
+    }
   }
   if (appConfig.modules.pipelines.enabled) {
     const unhealthy = data.pipelines.filter((pipeline) => pipelineTone(pipeline.status) !== "ok");

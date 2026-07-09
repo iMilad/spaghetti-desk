@@ -4,7 +4,8 @@ export type FeatureModuleId =
   | "licenses"
   | "permissions"
   | "agents"
-  | "pipelines";
+  | "pipelines"
+  | "audit";
 
 export type ViewId =
   | "overview"
@@ -14,6 +15,7 @@ export type ViewId =
   | "licenses"
   | "permissions"
   | "agents"
+  | "audit"
   | "collectors";
 
 export type OverviewWidgetId =
@@ -22,7 +24,8 @@ export type OverviewWidgetId =
   | "vm-ownership"
   | "license-renewals"
   | "permission-risk"
-  | "agent-activity";
+  | "agent-activity"
+  | "action-audit";
 
 export type FeatureModuleConfig = {
   id: FeatureModuleId;
@@ -97,6 +100,13 @@ export const featureModules: Record<FeatureModuleId, FeatureModuleConfig> = {
     showInOverview: true,
     description: "Agent sessions, approvals, commands, outcomes, and review state.",
   },
+  audit: {
+    id: "audit",
+    label: "Audit",
+    enabled: true,
+    showInOverview: true,
+    description: "Action requests, approvals, execution results, and sanitized change evidence.",
+  },
 };
 
 export const navigationItems: NavigationItemConfig[] = [
@@ -107,6 +117,7 @@ export const navigationItems: NavigationItemConfig[] = [
   { id: "licenses", label: "Licenses", moduleId: "licenses" },
   { id: "permissions", label: "Permissions", moduleId: "permissions" },
   { id: "agents", label: "Agents", moduleId: "agents" },
+  { id: "audit", label: "Audit", moduleId: "audit" },
   { id: "collectors", label: "Collectors" },
 ];
 
@@ -140,6 +151,12 @@ export const overviewWidgets: OverviewWidgetConfig[] = [
     id: "agent-activity",
     label: "Agent activity",
     moduleId: "agents",
+    defaultVisible: true,
+  },
+  {
+    id: "action-audit",
+    label: "Action audit",
+    moduleId: "audit",
     defaultVisible: true,
   },
 ];

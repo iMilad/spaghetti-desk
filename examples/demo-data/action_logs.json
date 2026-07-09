@@ -1,0 +1,89 @@
+[
+  {
+    "id": "action-demo-001",
+    "action_type": "vm.review.request",
+    "target_system": "spaghetti-desk",
+    "target_type": "vm",
+    "target_id": "vm-demo-build-01",
+    "requested_by": "demo-operator",
+    "requested_at": "2026-07-02T14:05:00Z",
+    "approval_status": "pending",
+    "approved_by": null,
+    "approved_at": null,
+    "execution_status": "queued",
+    "started_at": null,
+    "finished_at": null,
+    "duration_ms": null,
+    "risk_level": "medium",
+    "summary": "Request owner review for stale demo build worker.",
+    "sanitized_parameters": {
+      "review_reason": "stale_owner",
+      "notification_channel": "demo"
+    },
+    "before_state": {
+      "review_status": "stale",
+      "ownership_confidence": "unknown"
+    },
+    "after_state": {},
+    "result_summary": "Waiting for approval before any external notification is sent.",
+    "evidence_links": ["https://docs.example.invalid/runbooks/vm-review"]
+  },
+  {
+    "id": "action-demo-002",
+    "action_type": "service.maintenance.note",
+    "target_system": "spaghetti-desk",
+    "target_type": "service",
+    "target_id": "service-demo-ci",
+    "requested_by": "demo-operator",
+    "requested_at": "2026-07-02T13:48:00Z",
+    "approval_status": "approved",
+    "approved_by": "demo-approver",
+    "approved_at": "2026-07-02T13:51:00Z",
+    "execution_status": "succeeded",
+    "started_at": "2026-07-02T13:52:00Z",
+    "finished_at": "2026-07-02T13:52:04Z",
+    "duration_ms": 4000,
+    "risk_level": "low",
+    "summary": "Attach maintenance note to degraded CI demo service.",
+    "sanitized_parameters": {
+      "note_type": "maintenance",
+      "visibility": "internal-demo"
+    },
+    "before_state": {
+      "maintenance_note": "none"
+    },
+    "after_state": {
+      "maintenance_note": "planned"
+    },
+    "result_summary": "Demo maintenance note recorded in local audit history.",
+    "evidence_links": ["https://docs.example.invalid/services/ci"]
+  },
+  {
+    "id": "action-demo-003",
+    "action_type": "permission.review.sync",
+    "target_system": "demo-ci",
+    "target_type": "permission",
+    "target_id": "permission-demo-001",
+    "requested_by": "demo-agent",
+    "requested_at": "2026-07-01T08:25:00Z",
+    "approval_status": "not_required",
+    "approved_by": null,
+    "approved_at": null,
+    "execution_status": "failed",
+    "started_at": "2026-07-01T08:26:00Z",
+    "finished_at": "2026-07-01T08:26:02Z",
+    "duration_ms": 2000,
+    "risk_level": "high",
+    "summary": "Refresh demo permission evidence for high-risk admin access.",
+    "sanitized_parameters": {
+      "principal": "platform-admin@example.invalid",
+      "mode": "dry-run"
+    },
+    "before_state": {
+      "risk_level": "high"
+    },
+    "after_state": {},
+    "result_summary": "Dry-run failed because no real collector is configured in public demo mode.",
+    "evidence_links": []
+  }
+]

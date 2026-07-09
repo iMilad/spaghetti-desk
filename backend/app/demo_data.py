@@ -8,6 +8,7 @@ from typing import Any
 
 from app.models import (
     VM,
+    ActionLog,
     AgentSession,
     InventoryData,
     InventorySummary,
@@ -43,6 +44,9 @@ def _load_inventory(data_dir: str) -> InventoryData:
             AgentSession.model_validate(item)
             for item in _read_json(base_path / "agent_sessions.json")
         ],
+        action_logs=[
+            ActionLog.model_validate(item) for item in _read_json(base_path / "action_logs.json")
+        ],
     )
 
 
@@ -75,10 +79,16 @@ def get_inventory_summary() -> InventorySummary:
         agent_sessions_needing_review=sum(
             session.status == "needs_review" for session in inventory.agent_sessions
         ),
+        action_log_count=len(inventory.action_logs),
+        pending_approval_count=sum(
+            action.approval_status == "pending" for action in inventory.action_logs
+        ),
+        failed_action_count=sum(
+            action.execution_status == "failed" for action in inventory.action_logs
+        ),
         loaded_at=inventory.loaded_at,
     )
 
 
 def clear_inventory_cache() -> None:
     _load_inventory.cache_clear()
-

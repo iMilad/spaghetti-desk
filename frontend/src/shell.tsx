@@ -21,8 +21,8 @@ import type { ViewId } from "./moduleConfig";
 import { Avatar, Pill, SpaghettiMark } from "./ui";
 import type { Tone } from "./ui";
 
-/** Screens include module views plus static shell chrome (settings, audit). */
-export type Screen = ViewId | "settings" | "audit";
+/** Screens include module views plus static shell chrome. */
+export type Screen = ViewId | "settings";
 
 type ScreenMeta = {
   navLabel: string;
@@ -141,7 +141,7 @@ export function DashboardFrame({
   children: ReactNode;
 }) {
   const meta = screenMeta[activeScreen];
-  const enabled = new Set<Screen>([...enabledViews, "overview", "collectors", "settings", "audit"]);
+  const enabled = new Set<Screen>([...enabledViews, "overview", "collectors", "settings"]);
 
   return (
     <div className="shell">
@@ -277,18 +277,6 @@ function NavItem({
   onNavigate: (screen: Screen) => void;
 }) {
   const meta = screenMeta[screen];
-
-  if (screen === "audit") {
-    return (
-      <div className="nav__item" aria-disabled="true">
-        {meta.icon}
-        <span>{meta.navLabel}</span>
-        <em className="nav__tag" aria-label="planned">
-          soon
-        </em>
-      </div>
-    );
-  }
 
   return (
     <button

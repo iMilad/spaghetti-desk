@@ -18,6 +18,9 @@ const data: DashboardData = {
     high_risk_permission_count: 1,
     agent_session_count: 2,
     agent_sessions_needing_review: 1,
+    action_log_count: 3,
+    pending_approval_count: 1,
+    failed_action_count: 1,
     loaded_at: "2026-07-04T00:00:00Z",
   },
   services: [
@@ -85,6 +88,54 @@ const data: DashboardData = {
       commands_run: ["pytest"],
       approval_required: false,
       outcome: "Marked ownership confidence as guessed for review.",
+    },
+  ],
+  actionLogs: [
+    {
+      id: "action-demo-001",
+      action_type: "vm.review.request",
+      target_system: "spaghetti-desk",
+      target_type: "vm",
+      target_id: "vm-demo-build-01",
+      requested_by: "demo-operator",
+      requested_at: "2026-07-02T14:05:00Z",
+      approval_status: "pending",
+      approved_by: null,
+      approved_at: null,
+      execution_status: "queued",
+      started_at: null,
+      finished_at: null,
+      duration_ms: null,
+      risk_level: "medium",
+      summary: "Request owner review for stale demo build worker.",
+      sanitized_parameters: { review_reason: "stale_owner" },
+      before_state: { review_status: "stale" },
+      after_state: {},
+      result_summary: "Waiting for approval before any external notification is sent.",
+      evidence_links: ["https://docs.example.invalid/runbooks/vm-review"],
+    },
+    {
+      id: "action-demo-003",
+      action_type: "permission.review.sync",
+      target_system: "demo-ci",
+      target_type: "permission",
+      target_id: "permission-demo-001",
+      requested_by: "demo-agent",
+      requested_at: "2026-07-01T08:25:00Z",
+      approval_status: "not_required",
+      approved_by: null,
+      approved_at: null,
+      execution_status: "failed",
+      started_at: "2026-07-01T08:26:00Z",
+      finished_at: "2026-07-01T08:26:02Z",
+      duration_ms: 2000,
+      risk_level: "high",
+      summary: "Refresh demo permission evidence for high-risk admin access.",
+      sanitized_parameters: { principal: "platform-admin@example.invalid", mode: "dry-run" },
+      before_state: { risk_level: "high" },
+      after_state: {},
+      result_summary: "Dry-run failed because no real collector is configured in public demo mode.",
+      evidence_links: [],
     },
   ],
   pipelines: [
@@ -171,12 +222,14 @@ describe("Dashboard", () => {
     expect(screen.getByText("Pipelines healthy")).toBeInTheDocument();
     expect(screen.getByText("VMs needing review")).toBeInTheDocument();
     expect(screen.getByText("Permission findings")).toBeInTheDocument();
+    expect(screen.getByText("Pending approvals")).toBeInTheDocument();
 
     // Needs-attention triage feed merges the worst items across modules.
     expect(screen.getByText("Needs attention")).toBeInTheDocument();
     expect(screen.getByText("Continuous Integration degraded")).toBeInTheDocument();
     expect(screen.getByText("Demo Pipeline failed")).toBeInTheDocument();
     expect(screen.getByText("demo-build-01 — unreviewed")).toBeInTheDocument();
+    expect(screen.getByText("permission.review.sync on permission-demo-001")).toBeInTheDocument();
   });
 
   it("navigates between module screens as in-app pages", () => {
@@ -216,6 +269,14 @@ describe("Dashboard", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("session-demo-001")).toBeInTheDocument();
     expect(window.location.hash).toBe("#agents");
+
+    fireEvent.click(screen.getByRole("button", { name: /Actions & audit/ }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Actions & audit" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("vm.review.request")).toBeInTheDocument();
+    expect(screen.getByText("permission.review.sync")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#audit");
 
     fireEvent.click(screen.getByRole("button", { name: /Collectors/ }));
     expect(screen.getByRole("region", { name: "Collectors" })).toBeInTheDocument();

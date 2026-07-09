@@ -28,6 +28,9 @@ def test_summary_uses_demo_inventory() -> None:
     assert payload["vm_count"] == 6
     assert payload["unknown_owner_vm_count"] == 1
     assert payload["high_risk_permission_count"] == 1
+    assert payload["action_log_count"] == 3
+    assert payload["pending_approval_count"] == 1
+    assert payload["failed_action_count"] == 1
 
 
 def test_app_config_returns_public_module_config() -> None:
@@ -49,6 +52,7 @@ def test_app_config_returns_public_module_config() -> None:
         "licenses",
         "permissions",
         "agents",
+        "audit",
         "collectors",
     ]
     assert payload["overviewWidgets"][0]["id"] == "runtime-model"
@@ -148,3 +152,16 @@ def test_vms_filter_by_review_status() -> None:
     payload = response.json()
     assert payload["meta"]["total"] == 1
     assert payload["items"][0]["id"] == "vm-demo-sandbox-01"
+
+
+def test_action_logs_are_paginated_and_filterable() -> None:
+    response = client.get(
+        "/api/v1/action-logs",
+        params={"approval_status": "pending", "limit": 10},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["meta"]["total"] == 1
+    assert payload["items"][0]["id"] == "action-demo-001"
+    assert payload["items"][0]["sanitized_parameters"]["review_reason"] == "stale_owner"

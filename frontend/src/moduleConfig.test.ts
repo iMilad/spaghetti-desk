@@ -27,6 +27,7 @@ describe("moduleConfig", () => {
       "licenses",
       "permissions",
       "agents",
+      "audit",
       "collectors",
     ]);
     expect(getAvailableOverviewWidgets(appConfig).map((widget) => widget.id)).not.toContain(

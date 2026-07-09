@@ -49,9 +49,13 @@ Mutating operations should not be hidden inside page loads or collectors. A
 portal action should create an audited request, validate inputs, require approval
 where needed, run a controlled script or action runner, and store the result.
 
+The first action/audit module is documented in
+[Action and Audit Foundation](action-audit.md). It starts as an append-only local
+read model with public-safe demo data, then becomes the persistence target for
+controlled action runners.
+
 ## Public Data Boundary
 
 The public repository must only contain fake, example, or demo data. Local
 company data should live outside this repository and be upgraded from public
 releases as a downstream deployment.
-

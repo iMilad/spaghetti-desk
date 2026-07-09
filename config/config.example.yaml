@@ -43,6 +43,12 @@ ui:
       enabled: true
       show_in_overview: true
       description: Agent sessions, approvals, commands, outcomes, and review state.
+    audit:
+      id: audit
+      label: Audit
+      enabled: true
+      show_in_overview: true
+      description: Action requests, approvals, execution results, and sanitized change evidence.
   navigation_items:
     - id: overview
       label: Overview
@@ -64,6 +70,9 @@ ui:
     - id: agents
       label: Agents
       module_id: agents
+    - id: audit
+      label: Audit
+      module_id: audit
     - id: collectors
       label: Collectors
   overview_widgets:
@@ -89,6 +98,10 @@ ui:
     - id: agent-activity
       label: Agent activity
       module_id: agents
+      default_visible: true
+    - id: action-audit
+      label: Action audit
+      module_id: audit
       default_visible: true
 
 database:

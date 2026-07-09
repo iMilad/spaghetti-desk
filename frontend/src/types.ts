@@ -19,6 +19,9 @@ export type InventorySummary = {
   high_risk_permission_count: number;
   agent_session_count: number;
   agent_sessions_needing_review: number;
+  action_log_count: number;
+  pending_approval_count: number;
+  failed_action_count: number;
   loaded_at: string;
 };
 
@@ -94,6 +97,30 @@ export type AgentSession = {
   outcome: string;
 };
 
+export type ActionLog = {
+  id: string;
+  action_type: string;
+  target_system: string;
+  target_type: string;
+  target_id: string;
+  requested_by: string;
+  requested_at: string;
+  approval_status: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  execution_status: string;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  risk_level: string;
+  summary: string;
+  sanitized_parameters: Record<string, string>;
+  before_state: Record<string, string>;
+  after_state: Record<string, string>;
+  result_summary: string;
+  evidence_links: string[];
+};
+
 export type Pipeline = {
   id: string;
   provider: string;
@@ -143,6 +170,7 @@ export type DashboardData = {
   licenses: License[];
   permissions: Permission[];
   agentSessions: AgentSession[];
+  actionLogs: ActionLog[];
   pipelines: Pipeline[];
   collectors: CollectorStatus[];
   collectorRuns: CollectorRun[];

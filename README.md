@@ -147,10 +147,11 @@ Private data must stay out of this repository:
 5. License and expiry center
 6. Agent session log
 7. Permission and audit log
-8. Dashboard UI
-9. Background collectors
-10. Controlled action runner
-11. GitHub Actions CI and release workflow
+8. Action request and audit foundation
+9. Dashboard UI
+10. Background collectors
+11. Controlled action runner
+12. GitHub Actions CI and release workflow
 
 ## License
 

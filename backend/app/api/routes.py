@@ -13,6 +13,8 @@ from app.config import get_app_config, get_runtime_config
 from app.demo_data import get_inventory, get_inventory_summary
 from app.models import (
     VM,
+    ActionLog,
+    ActionLogPage,
     AgentSession,
     AgentSessionPage,
     AppConfig,
@@ -161,6 +163,27 @@ def list_agent_sessions(
     items = sorted(items, key=lambda item: item.started_at, reverse=True)
     page, meta = _page_items(items, limit, offset)
     return AgentSessionPage(meta=meta, items=page)
+
+
+@router.get("/action-logs", response_model=ActionLogPage)
+def list_action_logs(
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    approval_status: str | None = None,
+    execution_status: str | None = None,
+    target_system: str | None = None,
+):
+    inventory = get_inventory()
+    items: list[ActionLog] = _filter_equal(
+        inventory.action_logs,
+        "approval_status",
+        approval_status,
+    )
+    items = _filter_equal(items, "execution_status", execution_status)
+    items = _filter_equal(items, "target_system", target_system)
+    items = sorted(items, key=lambda item: item.requested_at, reverse=True)
+    page, meta = _page_items(items, limit, offset)
+    return ActionLogPage(meta=meta, items=page)
 
 
 @router.get("/permissions", response_model=PermissionPage)

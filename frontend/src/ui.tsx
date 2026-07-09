@@ -287,6 +287,35 @@ export function agentTone(status: string): Tone {
   }
 }
 
+export function approvalTone(status: string): Tone {
+  switch (status) {
+    case "approved":
+    case "not_required":
+      return "ok";
+    case "pending":
+      return "warning";
+    case "rejected":
+      return "risk";
+    default:
+      return "neutral";
+  }
+}
+
+export function executionTone(status: string): Tone {
+  switch (status) {
+    case "succeeded":
+      return "ok";
+    case "queued":
+    case "running":
+    case "blocked":
+      return "warning";
+    case "failed":
+      return "risk";
+    default:
+      return "neutral";
+  }
+}
+
 export function pipelineTone(status: string): Tone {
   switch (status) {
     case "healthy":

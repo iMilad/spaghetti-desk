@@ -12,6 +12,7 @@ FeatureModuleId = Literal[
     "permissions",
     "agents",
     "pipelines",
+    "audit",
 ]
 ViewId = Literal[
     "overview",
@@ -21,6 +22,7 @@ ViewId = Literal[
     "licenses",
     "permissions",
     "agents",
+    "audit",
     "collectors",
 ]
 OverviewWidgetId = Literal[
@@ -30,6 +32,7 @@ OverviewWidgetId = Literal[
     "license-renewals",
     "permission-risk",
     "agent-activity",
+    "action-audit",
 ]
 
 
@@ -111,6 +114,30 @@ class AgentSession(BaseModel):
     outcome: str
 
 
+class ActionLog(BaseModel):
+    id: str
+    action_type: str
+    target_system: str
+    target_type: str
+    target_id: str
+    requested_by: str
+    requested_at: datetime
+    approval_status: str
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    execution_status: str
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    duration_ms: int | None = Field(default=None, ge=0)
+    risk_level: str
+    summary: str
+    sanitized_parameters: dict[str, str] = Field(default_factory=dict)
+    before_state: dict[str, str] = Field(default_factory=dict)
+    after_state: dict[str, str] = Field(default_factory=dict)
+    result_summary: str
+    evidence_links: list[str] = Field(default_factory=list)
+
+
 class Pipeline(BaseModel):
     id: str
     provider: str
@@ -178,6 +205,11 @@ class AgentSessionPage(BaseModel):
     items: list[AgentSession]
 
 
+class ActionLogPage(BaseModel):
+    meta: PageMeta
+    items: list[ActionLog]
+
+
 class PipelinePage(BaseModel):
     meta: PageMeta
     items: list[Pipeline]
@@ -194,6 +226,7 @@ class InventoryData(BaseModel):
     licenses: list[License]
     permissions: list[Permission]
     agent_sessions: list[AgentSession]
+    action_logs: list[ActionLog]
     loaded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -209,6 +242,9 @@ class InventorySummary(BaseModel):
     high_risk_permission_count: int
     agent_session_count: int
     agent_sessions_needing_review: int
+    action_log_count: int
+    pending_approval_count: int
+    failed_action_count: int
     loaded_at: datetime
 
 

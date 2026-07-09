@@ -127,6 +127,38 @@ class AgentSessionRecord(TimestampMixin, Base):
     outcome: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class ActionLogRecord(TimestampMixin, Base):
+    __tablename__ = "action_logs"
+    __table_args__ = (
+        Index("ix_action_logs_approval_requested_at", "approval_status", "requested_at"),
+        Index("ix_action_logs_execution_requested_at", "execution_status", "requested_at"),
+        Index("ix_action_logs_target", "target_system", "target_type", "target_id"),
+        Index("ix_action_logs_requested_by", "requested_by"),
+    )
+
+    id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    action_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    target_system: Mapped[str] = mapped_column(String(120), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    requested_by: Mapped[str] = mapped_column(String(160), nullable=False)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    approval_status: Mapped[str] = mapped_column(String(40), nullable=False)
+    approved_by: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    execution_status: Mapped[str] = mapped_column(String(40), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    risk_level: Mapped[str] = mapped_column(String(40), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    sanitized_parameters: Mapped[dict[str, str]] = mapped_column(JSON, default=dict, nullable=False)
+    before_state: Mapped[dict[str, str]] = mapped_column(JSON, default=dict, nullable=False)
+    after_state: Mapped[dict[str, str]] = mapped_column(JSON, default=dict, nullable=False)
+    result_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_links: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+
+
 class PipelineRecord(TimestampMixin, Base):
     __tablename__ = "pipelines"
     __table_args__ = (

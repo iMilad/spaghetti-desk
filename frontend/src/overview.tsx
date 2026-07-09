@@ -249,6 +249,20 @@ function buildKpis(data: DashboardData, enabled: (id: FeatureModuleId) => boolea
     });
   }
 
+  if (enabled("audit")) {
+    const pending = s.pending_approval_count;
+    const failed = s.failed_action_count;
+    kpis.push({
+      id: "audit",
+      label: "Pending approvals",
+      value: pending,
+      valueTone: failed > 0 ? "risk" : pending > 0 ? "warning" : undefined,
+      sub: failed > 0 ? `${failed} failed actions` : `${s.action_log_count} action records`,
+      subTone: failed > 0 ? "risk" : pending > 0 ? "warning" : undefined,
+      screen: "audit",
+    });
+  }
+
   return kpis;
 }
 
@@ -385,6 +399,25 @@ function buildFindings(
         fact: formatRelative(session.started_at),
         screen: "agents",
         age: daysSince(session.started_at),
+      });
+    }
+  }
+
+  if (enabled("audit")) {
+    for (const action of data.actionLogs) {
+      if (action.approval_status !== "pending" && action.execution_status !== "failed") {
+        continue;
+      }
+      const failed = action.execution_status === "failed";
+      findings.push({
+        id: `act-${action.id}`,
+        tone: failed ? "risk" : "warning",
+        text: `${action.action_type} on ${action.target_id}`,
+        tag: "Audit",
+        fact: failed ? "failed" : "approval",
+        factRisk: failed,
+        screen: "audit",
+        age: daysSince(action.requested_at),
       });
     }
   }

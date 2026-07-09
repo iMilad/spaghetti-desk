@@ -2,13 +2,23 @@ import { Plus, Rows3, Search, SlidersHorizontal, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { AgentSession, License, Permission, Pipeline, Service, VM } from "./types";
+import type {
+  AgentSession,
+  ActionLog,
+  License,
+  Permission,
+  Pipeline,
+  Service,
+  VM,
+} from "./types";
 import {
   Avatar,
   Pill,
   agentTone,
+  approvalTone,
   daysLeftTone,
   daysUntil,
+  executionTone,
   formatAbsolute,
   formatRelative,
   getDensity,
@@ -1177,6 +1187,155 @@ export function AgentsPage({
           { label: "Commands run", items: s.commands_run },
         ],
         note: `${s.task_summary} — ${s.outcome}`,
+      })}
+    />
+  );
+}
+
+export function ActionLogsPage({
+  actionLogs,
+  loadedAt,
+}: {
+  actionLogs: ActionLog[];
+  loadedAt: string | null;
+}) {
+  const columns: Column<ActionLog>[] = [
+    {
+      key: "action",
+      header: "Action",
+      value: (a) => a.action_type,
+      mono: true,
+      grow: 1.4,
+      sortable: true,
+    },
+    {
+      key: "target",
+      header: "Target",
+      value: (a) => `${a.target_type}:${a.target_id}`,
+      cell: (a) => (
+        <span>
+          <span className="mono">{a.target_type}</span> · {a.target_id}
+        </span>
+      ),
+      grow: 1.4,
+    },
+    {
+      key: "requester",
+      header: "Requested by",
+      value: (a) => a.requested_by,
+      cell: (a) => ownerCell(a.requested_by),
+      grow: 1.1,
+      priority: 2,
+    },
+    {
+      key: "approval",
+      header: "Approval",
+      value: (a) => humanize(a.approval_status),
+      cell: (a) => <Pill tone={approvalTone(a.approval_status)}>{humanize(a.approval_status)}</Pill>,
+      grow: 0.9,
+      sortable: true,
+    },
+    {
+      key: "execution",
+      header: "Execution",
+      value: (a) => humanize(a.execution_status),
+      cell: (a) => <Pill tone={executionTone(a.execution_status)}>{humanize(a.execution_status)}</Pill>,
+      grow: 0.9,
+      sortable: true,
+    },
+    {
+      key: "risk",
+      header: "Risk",
+      value: (a) => humanize(a.risk_level),
+      cell: (a) => <Pill tone={riskTone(a.risk_level)}>{humanize(a.risk_level)}</Pill>,
+      grow: 0.7,
+      sortable: true,
+      sortValue: (a) => ({ high: 0, medium: 1, low: 2 })[a.risk_level] ?? 3,
+      priority: 2,
+    },
+    {
+      key: "requested",
+      header: "Requested",
+      value: (a) => a.requested_at,
+      cell: (a) => relCell(a.requested_at),
+      grow: 1,
+      sortable: true,
+      sortValue: (a) => new Date(a.requested_at).getTime(),
+      priority: 3,
+    },
+  ];
+
+  const facets: Facet<ActionLog>[] = [
+    {
+      key: "approval",
+      label: "Approval",
+      options: uniq(actionLogs, (a) => a.approval_status),
+      value: (a) => a.approval_status,
+    },
+    {
+      key: "execution",
+      label: "Execution",
+      options: uniq(actionLogs, (a) => a.execution_status),
+      value: (a) => a.execution_status,
+    },
+    {
+      key: "system",
+      label: "System",
+      options: uniq(actionLogs, (a) => a.target_system),
+      value: (a) => a.target_system,
+    },
+  ];
+
+  return (
+    <DataTable
+      title="Actions & audit"
+      unit="actions"
+      rows={actionLogs}
+      getId={(a) => a.id}
+      columns={columns}
+      facets={facets}
+      searchPlaceholder="Filter actions by type, target, requester, or status…   /"
+      asOf={loadedAt}
+      exportName="action-logs"
+      detail={(a) => ({
+        title: a.action_type,
+        id: a.id,
+        badges: [
+          { tone: approvalTone(a.approval_status), label: `Approval ${humanize(a.approval_status)}` },
+          { tone: executionTone(a.execution_status), label: `Execution ${humanize(a.execution_status)}` },
+          { tone: riskTone(a.risk_level), label: `${humanize(a.risk_level)} risk` },
+        ],
+        sections: [
+          {
+            label: "Request",
+            rows: [
+              { k: "Requested by", v: a.requested_by },
+              { k: "Requested", v: relCell(a.requested_at) },
+              { k: "Target system", v: <span className="mono">{a.target_system}</span> },
+              { k: "Target", v: <span className="mono">{`${a.target_type}:${a.target_id}`}</span> },
+            ],
+          },
+          {
+            label: "Approval and execution",
+            rows: [
+              { k: "Approved by", v: a.approved_by ?? "—" },
+              { k: "Approved", v: a.approved_at ? relCell(a.approved_at) : "—" },
+              { k: "Started", v: a.started_at ? relCell(a.started_at) : "—" },
+              { k: "Finished", v: a.finished_at ? relCell(a.finished_at) : "—" },
+              { k: "Duration", v: <span className="mono">{formatDurationMs(a.duration_ms)}</span> },
+            ],
+          },
+        ],
+        lists: [
+          { label: "Sanitized parameters", items: metadataList(a.sanitized_parameters) },
+          { label: "Before state", items: metadataList(a.before_state) },
+          { label: "After state", items: metadataList(a.after_state) },
+        ],
+        links: a.evidence_links.map((href, index) => ({
+          label: `Evidence ${index + 1}`,
+          href,
+        })),
+        note: `${a.summary} ${a.result_summary}`,
       })}
     />
   );
