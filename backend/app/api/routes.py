@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -25,10 +25,12 @@ from app.models import (
     ActionRequestDecision,
     AgentSession,
     AgentSessionPage,
+    AppBootstrap,
     AppConfig,
     CollectorRunPage,
     CollectorStatusResponse,
     CurrentOperator,
+    DashboardData,
     License,
     LicensePage,
     PageMeta,
@@ -142,23 +144,30 @@ def _requested_at_sort_value(action_log: ActionLog) -> float:
     return requested_at.timestamp()
 
 
-@router.get("/summary")
-def read_summary():
-    return get_inventory_summary()
+def _summary_with_action_counts(action_logs: Sequence[ActionLog]):
+    summary = get_inventory_summary()
+    return summary.model_copy(
+        update={
+            "action_log_count": len(action_logs),
+            "pending_approval_count": len(
+                [
+                    action_log
+                    for action_log in action_logs
+                    if action_log.approval_status == "pending"
+                ]
+            ),
+            "failed_action_count": len(
+                [
+                    action_log
+                    for action_log in action_logs
+                    if action_log.execution_status == "failed"
+                ]
+            ),
+        }
+    )
 
 
-@router.get("/app-config", response_model=AppConfig)
-def read_app_config():
-    return get_app_config()
-
-
-@router.get("/operator", response_model=CurrentOperator)
-def read_current_operator():
-    return get_current_operator()
-
-
-@router.get("/collectors", response_model=CollectorStatusResponse)
-def list_collectors(session: Annotated[Session, Depends(get_session)]):
+def _collector_statuses(session: Session) -> CollectorStatusResponse:
     statuses = list_collector_plugin_status(get_runtime_config())
     try:
         latest_runs = CollectorRunRepository(session).latest_runs_by_collector(
@@ -180,6 +189,95 @@ def list_collectors(session: Annotated[Session, Depends(get_session)]):
             for status in statuses
         ]
     )
+
+
+def _dashboard_data(session: Session) -> DashboardData:
+    inventory = get_inventory()
+    action_logs = _list_local_action_logs(
+        session=session,
+        limit=100,
+        approval_status=None,
+        execution_status=None,
+        target_system=None,
+    )
+    action_logs = sorted(action_logs, key=_requested_at_sort_value, reverse=True)[:20]
+
+    try:
+        pipeline_result = PipelineRepository(session).list_pipelines(limit=20, offset=0)
+        pipelines = pipeline_result.items
+    except SQLAlchemyError:
+        pipelines = []
+
+    try:
+        collector_runs = CollectorRunRepository(session).list_runs(limit=20, offset=0).items
+    except SQLAlchemyError:
+        collector_runs = []
+
+    return DashboardData(
+        summary=_summary_with_action_counts(action_logs),
+        services=inventory.services[:10],
+        pipelines=pipelines,
+        vms=inventory.vms[:10],
+        licenses=sorted(inventory.licenses, key=lambda item: item.expires_on)[:10],
+        agent_sessions=sorted(
+            inventory.agent_sessions,
+            key=lambda item: item.started_at,
+            reverse=True,
+        )[:10],
+        action_logs=action_logs,
+        permissions=inventory.permissions[:10],
+        collectors=_collector_statuses(session).collectors,
+        collector_runs=collector_runs,
+    )
+
+
+def _app_bootstrap(session: Session) -> AppBootstrap:
+    return AppBootstrap(
+        app_config=get_app_config(),
+        dashboard=_dashboard_data(session),
+        operator=get_current_operator(),
+    )
+
+
+@router.get("/summary")
+def read_summary():
+    return get_inventory_summary()
+
+
+@router.get("/app-config", response_model=AppConfig)
+def read_app_config():
+    return get_app_config()
+
+
+@router.get("/operator", response_model=CurrentOperator)
+def read_current_operator():
+    return get_current_operator()
+
+
+@router.get("/bootstrap", response_model=AppBootstrap)
+def read_app_bootstrap(session: Annotated[Session, Depends(get_session)]):
+    return _app_bootstrap(session)
+
+
+@router.get("/bootstrap.js")
+def read_app_bootstrap_script(
+    session: Annotated[Session, Depends(get_session)],
+    callback: Annotated[
+        str,
+        Query(min_length=1, max_length=80, pattern=r"^[A-Za-z_$][A-Za-z0-9_$]*$"),
+    ],
+):
+    payload = _app_bootstrap(session).model_dump_json(by_alias=True)
+    return Response(
+        content=f'globalThis["{callback}"]({payload});',
+        media_type="application/javascript; charset=utf-8",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get("/collectors", response_model=CollectorStatusResponse)
+def list_collectors(session: Annotated[Session, Depends(get_session)]):
+    return _collector_statuses(session)
 
 
 @router.get("/services", response_model=ServicePage)

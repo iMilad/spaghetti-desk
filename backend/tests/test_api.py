@@ -97,6 +97,45 @@ ui:
     assert payload["modules"]["vms"]["label"] == "VMs"
 
 
+def test_app_bootstrap_returns_initial_public_read_model() -> None:
+    response = client.get("/api/v1/bootstrap")
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["appConfig"]["modules"]["services"]["enabled"] is True
+    assert payload["operator"] == {
+        "id": "local-operator",
+        "displayName": "Local Operator",
+        "role": "admin",
+        "source": "config",
+    }
+    assert payload["dashboard"]["summary"]["service_count"] == 4
+    assert {item["id"] for item in payload["dashboard"]["services"]} >= {
+        "service-demo-ci"
+    }
+    assert {item["id"] for item in payload["dashboard"]["agentSessions"]} >= {
+        "session-demo-002"
+    }
+    assert {item["id"] for item in payload["dashboard"]["actionLogs"]} >= {
+        "action-demo-001"
+    }
+    assert {item["name"] for item in payload["dashboard"]["collectors"]} >= {"jenkins"}
+    assert "database" not in payload
+    assert "integrations" not in payload
+
+
+def test_app_bootstrap_script_wraps_initial_read_model() -> None:
+    response = client.get("/api/v1/bootstrap.js", params={"callback": "spaghettiDeskBootstrap"})
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["content-type"].startswith("application/javascript")
+    assert response.text.startswith('globalThis["spaghettiDeskBootstrap"](')
+    assert '"appConfig"' in response.text
+    assert '"operator"' in response.text
+    assert response.text.endswith(");")
+
+
 def test_current_operator_returns_public_default(monkeypatch: MonkeyPatch) -> None:
     _clear_operator_env(monkeypatch)
 

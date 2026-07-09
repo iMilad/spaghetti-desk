@@ -1,3 +1,5 @@
+import type { AppConfig } from "./moduleConfig";
+
 export type Page<T> = {
   meta: {
     total: number;
@@ -183,4 +185,10 @@ export type DashboardData = {
   pipelines: Pipeline[];
   collectors: CollectorStatus[];
   collectorRuns: CollectorRun[];
+};
+
+export type AppBootstrap = {
+  appConfig: AppConfig;
+  dashboard: DashboardData;
+  operator: CurrentOperator;
 };

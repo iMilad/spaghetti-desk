@@ -280,6 +280,41 @@ class CollectorRunPage(BaseModel):
     items: list[CollectorRun]
 
 
+class DashboardData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    summary: InventorySummary
+    services: list[Service]
+    vms: list[VM]
+    licenses: list[License]
+    permissions: list[Permission]
+    agent_sessions: list[AgentSession] = Field(
+        validation_alias=AliasChoices("agent_sessions", "agentSessions"),
+        serialization_alias="agentSessions",
+    )
+    action_logs: list[ActionLog] = Field(
+        validation_alias=AliasChoices("action_logs", "actionLogs"),
+        serialization_alias="actionLogs",
+    )
+    pipelines: list[Pipeline]
+    collectors: list[CollectorPluginState]
+    collector_runs: list[CollectorRun] = Field(
+        validation_alias=AliasChoices("collector_runs", "collectorRuns"),
+        serialization_alias="collectorRuns",
+    )
+
+
+class AppBootstrap(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    app_config: AppConfig = Field(
+        validation_alias=AliasChoices("app_config", "appConfig"),
+        serialization_alias="appConfig",
+    )
+    dashboard: DashboardData
+    operator: CurrentOperator
+
+
 class InventoryData(BaseModel):
     services: list[Service]
     vms: list[VM]

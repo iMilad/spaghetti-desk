@@ -1,6 +1,7 @@
 import type {
   AgentSession,
   ActionLog,
+  AppBootstrap,
   CollectorRun,
   CollectorStatusResponse,
   CurrentOperator,
@@ -17,6 +18,8 @@ import { normalizeAppConfig } from "./moduleConfig";
 import type { AppConfig } from "./moduleConfig";
 
 const apiBase = resolveApiBase(import.meta.env.VITE_API_BASE_URL);
+let bootstrapRequestId = 0;
+const bootstrapPayloadKey = "__spaghettiDeskBootstrapPayload";
 
 export function resolveApiBase(configuredApiBase: string | undefined): string {
   if (configuredApiBase !== undefined) {
@@ -36,17 +39,51 @@ function trimTrailingSlashes(value: string): string {
 }
 
 async function getJson<T>(path: string): Promise<T> {
-  let response: Response;
+  return requestJson<T>("GET", path);
+}
 
+async function postJson<T>(path: string, payload: unknown): Promise<T> {
+  return requestJson<T>("POST", path, payload);
+}
+
+async function requestJson<T>(
+  method: "GET" | "POST",
+  path: string,
+  payload?: unknown,
+): Promise<T> {
   try {
-    response = await fetch(buildApiUrl(path), {
-      headers: { Accept: "application/json" },
-    });
+    return await requestJsonWithFetch<T>(method, path, payload);
   } catch {
-    throw new Error(
-      `Unable to reach inventory API for ${path}. Check that the backend is running.`,
-    );
+    try {
+      return await requestJsonWithXhr<T>(method, path, payload);
+    } catch {
+      throw new Error(
+        `Unable to reach inventory API for ${path}. Check that the backend is running.`,
+      );
+    }
   }
+}
+
+async function requestJsonWithFetch<T>(
+  method: "GET" | "POST",
+  path: string,
+  payload?: unknown,
+): Promise<T> {
+  const fetchImpl = globalThis.fetch;
+  if (typeof fetchImpl !== "function") {
+    throw new Error("fetch is unavailable");
+  }
+
+  const response = await fetchImpl(buildApiUrl(path), {
+    method,
+    headers: payload === undefined
+      ? { Accept: "application/json" }
+      : {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+    body: payload === undefined ? undefined : JSON.stringify(payload),
+  });
 
   if (!response.ok) {
     throw new Error(`Request failed for ${path}: ${response.status} ${response.statusText}`);
@@ -55,29 +92,93 @@ async function getJson<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function postJson<T>(path: string, payload: unknown): Promise<T> {
-  let response: Response;
+function requestJsonWithXhr<T>(
+  method: "GET" | "POST",
+  path: string,
+  payload?: unknown,
+): Promise<T> {
+  if (typeof XMLHttpRequest !== "function") {
+    return Promise.reject(new Error("XMLHttpRequest is unavailable"));
+  }
 
-  try {
-    response = await fetch(buildApiUrl(path), {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-  } catch {
-    throw new Error(
-      `Unable to reach inventory API for ${path}. Check that the backend is running.`,
+  return new Promise<T>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open(method, buildApiUrl(path), true);
+    request.setRequestHeader("Accept", "application/json");
+    if (payload !== undefined) {
+      request.setRequestHeader("Content-Type", "application/json");
+    }
+
+    request.onload = () => {
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error(`Request failed for ${path}: ${request.status} ${request.statusText}`));
+        return;
+      }
+
+      try {
+        resolve(JSON.parse(request.responseText) as T);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error("Invalid JSON response"));
+      }
+    };
+    request.onerror = () => reject(new Error(`Network error for ${path}`));
+    request.ontimeout = () => reject(new Error(`Request timed out for ${path}`));
+    request.send(payload === undefined ? undefined : JSON.stringify(payload));
+  });
+}
+
+function hasStandardRequestTransport(): boolean {
+  return typeof globalThis.fetch === "function" || typeof XMLHttpRequest === "function";
+}
+
+function readBootstrapPayload(): AppBootstrap | null {
+  const globals = globalThis as typeof globalThis & Record<string, unknown>;
+  const payload = globals[bootstrapPayloadKey];
+  return payload && typeof payload === "object" ? (payload as AppBootstrap) : null;
+}
+
+function loadBootstrapScript(): Promise<AppBootstrap> {
+  const cachedPayload = readBootstrapPayload();
+  if (cachedPayload) {
+    return Promise.resolve(cachedPayload);
+  }
+
+  if (typeof document === "undefined") {
+    return Promise.reject(new Error("Script bootstrap is unavailable outside the browser."));
+  }
+
+  return new Promise<AppBootstrap>((resolve, reject) => {
+    const callbackName = `spaghettiDeskBootstrap${Date.now()}_${bootstrapRequestId++}`;
+    const globalCallbacks = globalThis as typeof globalThis & Record<string, unknown>;
+    const script = document.createElement("script");
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    const cleanup = () => {
+      if (timeout !== undefined) {
+        globalThis.clearTimeout(timeout);
+      }
+      delete globalCallbacks[callbackName];
+      script.remove();
+    };
+
+    globalCallbacks[callbackName] = (payload: AppBootstrap) => {
+      cleanup();
+      resolve(payload);
+    };
+    script.async = true;
+    script.src = buildApiUrl(
+      `/api/v1/bootstrap.js?callback=${encodeURIComponent(callbackName)}`,
     );
-  }
-
-  if (!response.ok) {
-    throw new Error(`Request failed for ${path}: ${response.status} ${response.statusText}`);
-  }
-
-  return response.json() as Promise<T>;
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Script bootstrap failed."));
+    };
+    timeout = globalThis.setTimeout(() => {
+      cleanup();
+      reject(new Error("Script bootstrap timed out."));
+    }, 10_000);
+    document.head.appendChild(script);
+  });
 }
 
 async function getOptionalJson<T>(path: string, fallback: T): Promise<T> {
@@ -89,6 +190,18 @@ async function getOptionalJson<T>(path: string, fallback: T): Promise<T> {
 }
 
 export async function fetchDashboard(): Promise<DashboardData> {
+  if (!hasStandardRequestTransport()) {
+    return (await loadBootstrapScript()).dashboard;
+  }
+
+  try {
+    return await fetchDashboardWithRequests();
+  } catch {
+    return (await loadBootstrapScript()).dashboard;
+  }
+}
+
+async function fetchDashboardWithRequests(): Promise<DashboardData> {
   const emptyCollectorRuns: Page<CollectorRun> = {
     meta: { total: 0, limit: 20, offset: 0 },
     items: [],
@@ -160,10 +273,34 @@ export async function rejectActionRequest(
 }
 
 export async function fetchAppConfig(): Promise<AppConfig> {
+  if (!hasStandardRequestTransport()) {
+    return normalizeAppConfig((await loadBootstrapScript()).appConfig);
+  }
+
+  try {
+    return await fetchAppConfigWithRequests();
+  } catch {
+    return normalizeAppConfig((await loadBootstrapScript()).appConfig);
+  }
+}
+
+async function fetchAppConfigWithRequests(): Promise<AppConfig> {
   return normalizeAppConfig(await getJson<AppConfig>("/api/v1/app-config"));
 }
 
 export async function fetchCurrentOperator(): Promise<CurrentOperator> {
+  if (!hasStandardRequestTransport()) {
+    return (await loadBootstrapScript()).operator;
+  }
+
+  try {
+    return await fetchCurrentOperatorWithRequests();
+  } catch {
+    return (await loadBootstrapScript()).operator;
+  }
+}
+
+async function fetchCurrentOperatorWithRequests(): Promise<CurrentOperator> {
   return getJson<CurrentOperator>("/api/v1/operator");
 }
 
@@ -172,12 +309,36 @@ export async function fetchInitialAppData(): Promise<{
   dashboard: DashboardData;
   operator: CurrentOperator;
 }> {
-  const [appConfig, dashboard, operator] = await Promise.all([
-    fetchAppConfig(),
-    fetchDashboard(),
-    fetchCurrentOperator(),
-  ]);
-  return { appConfig, dashboard, operator };
+  const bootstrapPayload = readBootstrapPayload();
+  if (bootstrapPayload) {
+    return {
+      ...bootstrapPayload,
+      appConfig: normalizeAppConfig(bootstrapPayload.appConfig),
+    };
+  }
+
+  if (!hasStandardRequestTransport()) {
+    const bootstrap = await loadBootstrapScript();
+    return {
+      ...bootstrap,
+      appConfig: normalizeAppConfig(bootstrap.appConfig),
+    };
+  }
+
+  try {
+    const [appConfig, dashboard, operator] = await Promise.all([
+      fetchAppConfigWithRequests(),
+      fetchDashboardWithRequests(),
+      fetchCurrentOperatorWithRequests(),
+    ]);
+    return { appConfig, dashboard, operator };
+  } catch {
+    const bootstrap = await loadBootstrapScript();
+    return {
+      ...bootstrap,
+      appConfig: normalizeAppConfig(bootstrap.appConfig),
+    };
+  }
 }
 
 export function withActionSummaryCounts(
