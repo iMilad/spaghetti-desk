@@ -27,7 +27,8 @@ Jira, or vSphere.
 
 Collector plugins are optional Python packages. They expose entry points in the
 `spaghetti_desk.collectors` group and are registered only when installed in the
-backend environment.
+backend environment. See [Install and Configure a Collector](collector-plugin-template.md)
+for a generic non-Jenkins plugin template.
 
 Core responsibilities:
 

@@ -30,7 +30,8 @@ External-system collectors follow the same optional model. The core app
 discovers installed collector plugins, but no real external collector is enabled
 by default. For example, Jenkins support lives in `plugins/jenkins` and must be
 installed and enabled with private deployment config before it can read Jenkins
-data.
+data. To create a non-Jenkins collector, use the generic template in
+[docs/collector-plugin-template.md](docs/collector-plugin-template.md).
 
 ## Architecture
 
