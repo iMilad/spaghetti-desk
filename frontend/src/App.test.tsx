@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Dashboard } from "./App";
 import { defaultAppConfig } from "./moduleConfig";
@@ -274,7 +274,7 @@ describe("Dashboard", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Actions & audit" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("vm.review.request")).toBeInTheDocument();
+    expect(screen.getAllByText("vm.review.request").length).toBeGreaterThan(0);
     expect(screen.getByText("permission.review.sync")).toBeInTheDocument();
     expect(window.location.hash).toBe("#audit");
 
@@ -318,6 +318,50 @@ describe("Dashboard", () => {
     });
     expect(panel).toBeInTheDocument();
     expect(screen.getByText("One demo worker has unknown ownership.")).toBeInTheDocument();
+  });
+
+  it("shows pending action requests and calls the approval handler", async () => {
+    const livePendingData: DashboardData = {
+      ...data,
+      actionLogs: [
+        {
+          ...data.actionLogs[0],
+          id: "action-20260709105918-7ad7528b",
+        },
+        data.actionLogs[1],
+      ],
+    };
+    const onDecideActionRequest = vi
+      .fn()
+      .mockResolvedValue({ ...livePendingData.actionLogs[0], approval_status: "approved" });
+
+    render(
+      <Dashboard
+        data={livePendingData}
+        onDecideActionRequest={onDecideActionRequest}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Actions & audit/ }));
+
+    expect(
+      screen.getByRole("region", { name: "Pending action requests" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Pending action requests")).toBeInTheDocument();
+    expect(screen.getAllByText("vm.review.request").length).toBeGreaterThan(0);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Approve vm.review.request on vm-demo-build-01",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(onDecideActionRequest).toHaveBeenCalledWith(
+        "action-20260709105918-7ad7528b",
+        "approve",
+      ),
+    );
   });
 
   it("removes navigation and KPIs for disabled modules", () => {

@@ -8,7 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.actions import build_action_log
+from app.actions import (
+    ActionRequestStateError,
+    approve_action_request,
+    build_action_log,
+    reject_action_request,
+)
 from app.collectors.plugins import list_collector_plugin_status
 from app.config import get_app_config, get_runtime_config
 from app.demo_data import get_inventory, get_inventory_summary
@@ -17,6 +22,7 @@ from app.models import (
     ActionLog,
     ActionLogPage,
     ActionRequestCreate,
+    ActionRequestDecision,
     AgentSession,
     AgentSessionPage,
     AppConfig,
@@ -41,6 +47,11 @@ from app.persistence.repositories import (
 )
 
 router = APIRouter()
+
+ACTION_REQUEST_DB_UNAVAILABLE_DETAIL = (
+    "Inventory database is not initialized for action requests. "
+    "Run `cd backend && uv run alembic upgrade head`."
+)
 
 
 def _page_items[PageItem](
@@ -121,6 +132,13 @@ def _filter_action_logs(
     items = _filter_equal(items, "execution_status", execution_status)
     items = _filter_equal(items, "target_system", target_system)
     return items
+
+
+def _requested_at_sort_value(action_log: ActionLog) -> float:
+    requested_at = action_log.requested_at
+    if requested_at.tzinfo is None:
+        requested_at = requested_at.replace(tzinfo=UTC)
+    return requested_at.timestamp()
 
 
 @router.get("/summary")
@@ -232,7 +250,7 @@ def list_action_logs(
         execution_status=execution_status,
         target_system=target_system,
     )
-    items = sorted(items, key=lambda item: item.requested_at, reverse=True)
+    items = sorted(items, key=_requested_at_sort_value, reverse=True)
     page, meta = _page_items(items, limit, offset)
     return ActionLogPage(meta=meta, items=page)
 
@@ -254,12 +272,87 @@ def create_action_request(
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Inventory database is not initialized for action requests. "
-                "Run `cd backend && uv run alembic upgrade head`."
-            ),
+            detail=ACTION_REQUEST_DB_UNAVAILABLE_DETAIL,
         ) from exc
     return created
+
+
+@router.post(
+    "/action-requests/{action_id}/approve",
+    response_model=ActionLog,
+)
+def approve_recorded_action_request(
+    action_id: str,
+    payload: ActionRequestDecision,
+    session: Annotated[Session, Depends(get_session)],
+):
+    return _decide_recorded_action_request(
+        action_id=action_id,
+        payload=payload,
+        session=session,
+        decision="approve",
+    )
+
+
+@router.post(
+    "/action-requests/{action_id}/reject",
+    response_model=ActionLog,
+)
+def reject_recorded_action_request(
+    action_id: str,
+    payload: ActionRequestDecision,
+    session: Annotated[Session, Depends(get_session)],
+):
+    return _decide_recorded_action_request(
+        action_id=action_id,
+        payload=payload,
+        session=session,
+        decision="reject",
+    )
+
+
+def _decide_recorded_action_request(
+    *,
+    action_id: str,
+    payload: ActionRequestDecision,
+    session: Session,
+    decision: str,
+) -> ActionLog:
+    repository = ActionLogRepository(session)
+    try:
+        action_log = repository.get_action_log(action_id)
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=ACTION_REQUEST_DB_UNAVAILABLE_DETAIL,
+        ) from exc
+
+    if action_log is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Action request {action_id} was not found.",
+        )
+
+    try:
+        updated = (
+            approve_action_request(action_log, payload)
+            if decision == "approve"
+            else reject_action_request(action_log, payload)
+        )
+        stored = repository.record_action_log(updated)
+        session.commit()
+    except ActionRequestStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    except SQLAlchemyError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=ACTION_REQUEST_DB_UNAVAILABLE_DETAIL,
+        ) from exc
+    return stored
 
 
 @router.get("/permissions", response_model=PermissionPage)

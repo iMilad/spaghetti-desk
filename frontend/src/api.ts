@@ -15,16 +15,14 @@ import type {
 import { normalizeAppConfig } from "./moduleConfig";
 import type { AppConfig } from "./moduleConfig";
 
-const localBackendApiBase = "http://127.0.0.1:8000";
-const currentHostname = typeof window === "undefined" ? "" : window.location.hostname;
-const apiBase = resolveApiBase(import.meta.env.VITE_API_BASE_URL, currentHostname);
+const apiBase = resolveApiBase(import.meta.env.VITE_API_BASE_URL);
 
-export function resolveApiBase(configuredApiBase: string | undefined, hostname: string): string {
+export function resolveApiBase(configuredApiBase: string | undefined): string {
   if (configuredApiBase !== undefined) {
     return trimTrailingSlashes(configuredApiBase.trim());
   }
 
-  return isLocalHost(hostname) ? localBackendApiBase : "";
+  return "";
 }
 
 export function buildApiUrl(path: string, base = apiBase): string {
@@ -36,21 +34,37 @@ function trimTrailingSlashes(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
-function isLocalHost(hostname: string): boolean {
-  return (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1" ||
-    hostname === "[::1]"
-  );
-}
-
 async function getJson<T>(path: string): Promise<T> {
   let response: Response;
 
   try {
     response = await fetch(buildApiUrl(path), {
       headers: { Accept: "application/json" },
+    });
+  } catch {
+    throw new Error(
+      `Unable to reach inventory API for ${path}. Check that the backend is running.`,
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(`Request failed for ${path}: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+async function postJson<T>(path: string, payload: unknown): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(buildApiUrl(path), {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     });
   } catch {
     throw new Error(
@@ -107,7 +121,7 @@ export async function fetchDashboard(): Promise<DashboardData> {
   ]);
 
   return {
-    summary,
+    summary: withActionSummaryCounts(summary, actionLogs.items),
     services: services.items,
     pipelines: pipelines.items,
     vms: vms.items,
@@ -120,6 +134,31 @@ export async function fetchDashboard(): Promise<DashboardData> {
   };
 }
 
+export type ActionRequestDecisionPayload = {
+  reviewed_by: string;
+  reason?: string;
+};
+
+export async function approveActionRequest(
+  actionId: string,
+  payload: ActionRequestDecisionPayload,
+): Promise<ActionLog> {
+  return postJson<ActionLog>(
+    `/api/v1/action-requests/${encodeURIComponent(actionId)}/approve`,
+    payload,
+  );
+}
+
+export async function rejectActionRequest(
+  actionId: string,
+  payload: ActionRequestDecisionPayload,
+): Promise<ActionLog> {
+  return postJson<ActionLog>(
+    `/api/v1/action-requests/${encodeURIComponent(actionId)}/reject`,
+    payload,
+  );
+}
+
 export async function fetchAppConfig(): Promise<AppConfig> {
   return normalizeAppConfig(await getJson<AppConfig>("/api/v1/app-config"));
 }
@@ -130,4 +169,18 @@ export async function fetchInitialAppData(): Promise<{
 }> {
   const [appConfig, dashboard] = await Promise.all([fetchAppConfig(), fetchDashboard()]);
   return { appConfig, dashboard };
+}
+
+export function withActionSummaryCounts(
+  summary: InventorySummary,
+  actionLogs: ActionLog[],
+): InventorySummary {
+  return {
+    ...summary,
+    action_log_count: actionLogs.length,
+    pending_approval_count: actionLogs.filter((action) => action.approval_status === "pending")
+      .length,
+    failed_action_count: actionLogs.filter((action) => action.execution_status === "failed")
+      .length,
+  };
 }

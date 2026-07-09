@@ -91,6 +91,10 @@ class ActionLogRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def get_action_log(self, action_id: str) -> ActionLog | None:
+        record = self._session.get(ActionLogRecord, action_id)
+        return action_log_from_record(record) if record else None
+
     def list_action_logs(
         self,
         *,

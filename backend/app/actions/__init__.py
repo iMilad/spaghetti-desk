@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from app.models import ActionLog, ActionRequestCreate
+from app.models import ActionLog, ActionRequestCreate, ActionRequestDecision
 
 APPROVAL_REQUIRED_RISK_LEVELS = {"medium", "high"}
 SENSITIVE_KEY_PARTS = (
@@ -20,6 +20,10 @@ SENSITIVE_KEY_PARTS = (
     "token",
 )
 MAX_SANITIZED_VALUE_LENGTH = 160
+
+
+class ActionRequestStateError(ValueError):
+    """Raised when a recorded action request cannot move to the requested state."""
 
 
 def build_action_log(
@@ -58,6 +62,59 @@ def build_action_log(
     )
 
 
+def approve_action_request(
+    action_log: ActionLog,
+    decision: ActionRequestDecision,
+    *,
+    decided_at: datetime | None = None,
+) -> ActionLog:
+    timestamp = decided_at or datetime.now(UTC)
+    _ensure_pending(action_log)
+    after_state = _decision_state(
+        action_log,
+        approval_status="approved",
+        reason=decision.reason,
+    )
+    return action_log.model_copy(
+        update={
+            "approval_status": "approved",
+            "approved_by": decision.reviewed_by,
+            "approved_at": timestamp,
+            "execution_status": "not_started",
+            "after_state": after_state,
+            "result_summary": (
+                "Action request approved. The action runner is not enabled yet; "
+                "no external operation was performed."
+            ),
+        }
+    )
+
+
+def reject_action_request(
+    action_log: ActionLog,
+    decision: ActionRequestDecision,
+    *,
+    decided_at: datetime | None = None,
+) -> ActionLog:
+    timestamp = decided_at or datetime.now(UTC)
+    _ensure_pending(action_log)
+    after_state = _decision_state(
+        action_log,
+        approval_status="rejected",
+        reason=decision.reason,
+    )
+    return action_log.model_copy(
+        update={
+            "approval_status": "rejected",
+            "approved_by": decision.reviewed_by,
+            "approved_at": timestamp,
+            "execution_status": "skipped",
+            "after_state": after_state,
+            "result_summary": "Action request rejected. No external operation was performed.",
+        }
+    )
+
+
 def sanitize_mapping(values: dict[str, Any]) -> dict[str, str]:
     sanitized: dict[str, str] = {}
     for raw_key, raw_value in sorted(values.items()):
@@ -66,6 +123,27 @@ def sanitize_mapping(values: dict[str, Any]) -> dict[str, str]:
             continue
         sanitized[key] = "[redacted]" if _is_sensitive_key(key) else _sanitize_value(raw_value)
     return sanitized
+
+
+def _ensure_pending(action_log: ActionLog) -> None:
+    if action_log.approval_status != "pending":
+        raise ActionRequestStateError(
+            f"Action request {action_log.id} is {action_log.approval_status}; "
+            "only pending requests can be decided."
+        )
+
+
+def _decision_state(
+    action_log: ActionLog,
+    *,
+    approval_status: str,
+    reason: str | None,
+) -> dict[str, str]:
+    after_state = dict(action_log.after_state)
+    after_state["approval_status"] = approval_status
+    if reason:
+        after_state["decision_reason"] = _sanitize_value(reason)
+    return after_state
 
 
 def _action_id(requested_at: datetime) -> str:

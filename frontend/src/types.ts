@@ -121,6 +121,8 @@ export type ActionLog = {
   evidence_links: string[];
 };
 
+export type ActionRequestDecisionKind = "approve" | "reject";
+
 export type Pipeline = {
   id: string;
   provider: string;

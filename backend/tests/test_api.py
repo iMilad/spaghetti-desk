@@ -154,11 +154,23 @@ def test_vms_filter_by_review_status() -> None:
     assert payload["items"][0]["id"] == "vm-demo-sandbox-01"
 
 
-def test_action_logs_are_paginated_and_filterable() -> None:
-    response = client.get(
-        "/api/v1/action-logs",
-        params={"approval_status": "pending", "limit": 10},
-    )
+def test_action_logs_are_paginated_and_filterable(tmp_path) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'inventory.db'}")
+    Base.metadata.create_all(engine)
+
+    def override_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    try:
+        response = client.get(
+            "/api/v1/action-logs",
+            params={"approval_status": "pending", "limit": 10},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
     assert response.status_code == 200
     payload = response.json()
 
@@ -279,6 +291,152 @@ def test_create_high_risk_action_request_cannot_bypass_approval(tmp_path) -> Non
     payload = response.json()
     assert payload["approval_status"] == "pending"
     assert payload["execution_status"] == "blocked"
+
+
+def test_approve_action_request_records_decision_without_execution(tmp_path) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'inventory.db'}")
+    Base.metadata.create_all(engine)
+
+    def override_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    try:
+        create_response = client.post(
+            "/api/v1/action-requests",
+            json={
+                "action_type": "vm.review.request",
+                "target_system": "spaghetti-desk",
+                "target_type": "vm",
+                "target_id": "vm-demo-build-01",
+                "requested_by": "demo-operator",
+                "summary": "Request owner review for stale demo build worker.",
+            },
+        )
+        action_id = create_response.json()["id"]
+
+        response = client.post(
+            f"/api/v1/action-requests/{action_id}/approve",
+            json={"reviewed_by": "demo-approver", "reason": "Demo approval only."},
+        )
+
+        with Session(engine) as session:
+            stored = ActionLogRepository(session).get_action_log(action_id)
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["approval_status"] == "approved"
+    assert payload["approved_by"] == "demo-approver"
+    assert payload["approved_at"] is not None
+    assert payload["execution_status"] == "not_started"
+    assert payload["started_at"] is None
+    assert payload["after_state"]["approval_status"] == "approved"
+    assert payload["after_state"]["decision_reason"] == "Demo approval only."
+    assert "no external operation was performed" in payload["result_summary"]
+    assert stored is not None
+    assert stored.approval_status == "approved"
+
+
+def test_reject_action_request_skips_execution(tmp_path) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'inventory.db'}")
+    Base.metadata.create_all(engine)
+
+    def override_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    try:
+        create_response = client.post(
+            "/api/v1/action-requests",
+            json={
+                "action_type": "vm.review.request",
+                "target_system": "spaghetti-desk",
+                "target_type": "vm",
+                "target_id": "vm-demo-build-01",
+                "requested_by": "demo-operator",
+                "summary": "Request owner review for stale demo build worker.",
+            },
+        )
+        action_id = create_response.json()["id"]
+
+        response = client.post(
+            f"/api/v1/action-requests/{action_id}/reject",
+            json={"reviewed_by": "demo-approver", "reason": "Owner evidence is incomplete."},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["approval_status"] == "rejected"
+    assert payload["approved_by"] == "demo-approver"
+    assert payload["approved_at"] is not None
+    assert payload["execution_status"] == "skipped"
+    assert payload["started_at"] is None
+    assert payload["finished_at"] is None
+    assert payload["after_state"]["approval_status"] == "rejected"
+    assert "No external operation was performed" in payload["result_summary"]
+
+
+def test_action_request_decision_requires_pending_request(tmp_path) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'inventory.db'}")
+    Base.metadata.create_all(engine)
+
+    def override_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    try:
+        create_response = client.post(
+            "/api/v1/action-requests",
+            json={
+                "action_type": "service.maintenance.note",
+                "target_system": "spaghetti-desk",
+                "target_type": "service",
+                "target_id": "service-demo-ci",
+                "requested_by": "demo-operator",
+                "summary": "Record a local demo maintenance note.",
+                "risk_level": "low",
+                "requires_approval": False,
+            },
+        )
+        action_id = create_response.json()["id"]
+
+        response = client.post(
+            f"/api/v1/action-requests/{action_id}/approve",
+            json={"reviewed_by": "demo-approver"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "only pending requests can be decided" in response.json()["detail"]
+
+
+def test_action_request_decision_reports_missing_request(tmp_path) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'inventory.db'}")
+    Base.metadata.create_all(engine)
+
+    def override_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    try:
+        response = client.post(
+            "/api/v1/action-requests/action-missing/approve",
+            json={"reviewed_by": "demo-approver"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert "was not found" in response.json()["detail"]
 
 
 def test_create_action_request_rejects_invalid_action_type(tmp_path) -> None:

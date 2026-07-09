@@ -1,7 +1,13 @@
 import { TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchDashboard, fetchInitialAppData } from "./api";
+import {
+  approveActionRequest,
+  fetchDashboard,
+  fetchInitialAppData,
+  rejectActionRequest,
+  withActionSummaryCounts,
+} from "./api";
 import { CollectorsPage } from "./collectors";
 import { defaultAppConfig, getEnabledNavigationItems } from "./moduleConfig";
 import type { AppConfig } from "./moduleConfig";
@@ -17,7 +23,12 @@ import {
   ServicesPage,
   VMsPage,
 } from "./tables";
-import type { CollectorStatus, DashboardData } from "./types";
+import type {
+  ActionLog,
+  ActionRequestDecisionKind,
+  CollectorStatus,
+  DashboardData,
+} from "./types";
 import { getDensity, getTheme, pipelineTone, setDensity, setTheme } from "./ui";
 import type { Density, Tone } from "./ui";
 
@@ -25,6 +36,8 @@ type LoadState =
   | { status: "loading" }
   | { status: "ready"; appConfig: AppConfig; data: DashboardData; refreshing: boolean }
   | { status: "error"; message: string };
+
+const LOCAL_REVIEWER = "demo-operator";
 
 export default function App() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
@@ -74,6 +87,23 @@ export default function App() {
   }, [load]);
 
   const refresh = useCallback(() => void load("refresh"), [load]);
+  const decideActionRequest = useCallback(
+    async (actionId: string, decision: ActionRequestDecisionKind) => {
+      const payload = { reviewed_by: LOCAL_REVIEWER };
+      const updated =
+        decision === "approve"
+          ? await approveActionRequest(actionId, payload)
+          : await rejectActionRequest(actionId, payload);
+
+      setState((current) =>
+        current.status === "ready"
+          ? { ...current, data: replaceActionLog(current.data, updated) }
+          : current,
+      );
+      return updated;
+    },
+    [],
+  );
 
   if (state.status === "loading") {
     return <LoadingScreen theme={theme} onToggleTheme={toggleTheme} />;
@@ -98,6 +128,7 @@ export default function App() {
       theme={theme}
       onToggleTheme={toggleTheme}
       onRefresh={refresh}
+      onDecideActionRequest={decideActionRequest}
     />
   );
 }
@@ -109,6 +140,7 @@ export function Dashboard({
   theme: themeProp,
   onToggleTheme,
   onRefresh = () => undefined,
+  onDecideActionRequest,
 }: {
   appConfig?: AppConfig;
   data: DashboardData;
@@ -116,6 +148,10 @@ export function Dashboard({
   theme?: "light" | "dark";
   onToggleTheme?: () => void;
   onRefresh?: () => void;
+  onDecideActionRequest?: (
+    actionId: string,
+    decision: ActionRequestDecisionKind,
+  ) => Promise<ActionLog>;
 }) {
   const [localTheme, setLocalTheme] = useState<"light" | "dark">(() => getTheme());
   const theme = themeProp ?? localTheme;
@@ -225,7 +261,11 @@ export function Dashboard({
         <AgentsPage sessions={data.agentSessions} loadedAt={loadedAt} />
       ) : null}
       {activeScreen === "audit" ? (
-        <ActionLogsPage actionLogs={data.actionLogs} loadedAt={loadedAt} />
+        <ActionLogsPage
+          actionLogs={data.actionLogs}
+          loadedAt={loadedAt}
+          onDecideActionRequest={onDecideActionRequest}
+        />
       ) : null}
       {activeScreen === "collectors" ? (
         <CollectorsPage collectors={data.collectors} runs={data.collectorRuns} />
@@ -455,6 +495,17 @@ function buildBadges(
     }
   }
   return badges;
+}
+
+function replaceActionLog(data: DashboardData, updated: ActionLog): DashboardData {
+  const nextActionLogs = data.actionLogs.map((action) =>
+    action.id === updated.id ? updated : action,
+  );
+  return {
+    ...data,
+    summary: withActionSummaryCounts(data.summary, nextActionLogs),
+    actionLogs: nextActionLogs,
+  };
 }
 
 function collectorNavTone(collectors: CollectorStatus[]): Tone {

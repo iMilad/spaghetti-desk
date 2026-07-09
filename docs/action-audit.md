@@ -61,3 +61,28 @@ Medium and high risk requests are recorded with `approval_status: pending` and
 `execution_status: blocked`. Low-risk requests are recorded as
 `approval_status: not_required` and `execution_status: not_started`. Sensitive
 parameter values are redacted before persistence.
+
+## Approve or Reject an Action Request
+
+Pending requests can be decided through local API state transitions:
+
+- `POST /api/v1/action-requests/{action_id}/approve`
+- `POST /api/v1/action-requests/{action_id}/reject`
+
+Example payload:
+
+```json
+{
+  "reviewed_by": "demo-approver",
+  "reason": "Demo approval only."
+}
+```
+
+Approving a pending request records `approval_status: approved`, stores the
+reviewer and decision time, and moves `execution_status` back to `not_started`.
+Rejecting a pending request records `approval_status: rejected` and
+`execution_status: skipped`.
+
+Neither endpoint runs a script, queues a runner job, or calls an external
+system. Requests that are already approved, rejected, or marked
+`not_required` return a conflict instead of rewriting the decision history.

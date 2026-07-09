@@ -175,6 +175,11 @@ class ActionRequestCreate(BaseModel):
     evidence_links: list[str] = Field(default_factory=list, max_length=10)
 
 
+class ActionRequestDecision(BaseModel):
+    reviewed_by: str = Field(min_length=1, max_length=160)
+    reason: str | None = Field(default=None, max_length=500)
+
+
 class Pipeline(BaseModel):
     id: str
     provider: str

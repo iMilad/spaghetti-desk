@@ -1,10 +1,11 @@
-import { Plus, Rows3, Search, SlidersHorizontal, X } from "lucide-react";
+import { Check, CircleX, Plus, Rows3, Search, SlidersHorizontal, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   AgentSession,
   ActionLog,
+  ActionRequestDecisionKind,
   License,
   Permission,
   Pipeline,
@@ -84,6 +85,7 @@ export function DataTable<T>({
   searchPlaceholder,
   asOf,
   exportName,
+  topContent,
 }: {
   title: string;
   unit: string;
@@ -96,6 +98,7 @@ export function DataTable<T>({
   searchPlaceholder?: string;
   asOf?: string | null;
   exportName?: string;
+  topContent?: ReactNode;
 }) {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -262,6 +265,8 @@ export function DataTable<T>({
             </button>
           ) : null}
         </div>
+
+        {topContent ? <div className="table-top-content">{topContent}</div> : null}
 
         <div className="toolbar">
           <label className="toolbar__search">
@@ -1195,10 +1200,51 @@ export function AgentsPage({
 export function ActionLogsPage({
   actionLogs,
   loadedAt,
+  onDecideActionRequest,
 }: {
   actionLogs: ActionLog[];
   loadedAt: string | null;
+  onDecideActionRequest?: (
+    actionId: string,
+    decision: ActionRequestDecisionKind,
+  ) => Promise<ActionLog>;
 }) {
+  const pendingActions = useMemo(
+    () =>
+      actionLogs
+        .filter((action) => action.approval_status === "pending")
+        .sort(
+          (a, b) =>
+            new Date(b.requested_at).getTime() - new Date(a.requested_at).getTime(),
+        ),
+    [actionLogs],
+  );
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [busyDecision, setBusyDecision] = useState<{
+    actionId: string;
+    decision: ActionRequestDecisionKind;
+  } | null>(null);
+
+  const decideActionRequest = useCallback(
+    async (actionId: string, decision: ActionRequestDecisionKind) => {
+      if (!onDecideActionRequest) {
+        return;
+      }
+      setDecisionError(null);
+      setBusyDecision({ actionId, decision });
+      try {
+        await onDecideActionRequest(actionId, decision);
+      } catch (error: unknown) {
+        setDecisionError(
+          error instanceof Error ? error.message : "Unable to update action request.",
+        );
+      } finally {
+        setBusyDecision(null);
+      }
+    },
+    [onDecideActionRequest],
+  );
+
   const columns: Column<ActionLog>[] = [
     {
       key: "action",
@@ -1297,6 +1343,14 @@ export function ActionLogsPage({
       searchPlaceholder="Filter actions by type, target, requester, or status…   /"
       asOf={loadedAt}
       exportName="action-logs"
+      topContent={
+        <PendingActionRequestsPanel
+          actions={pendingActions}
+          busyDecision={busyDecision}
+          decisionError={decisionError}
+          onDecide={onDecideActionRequest ? decideActionRequest : undefined}
+        />
+      }
       detail={(a) => ({
         title: a.action_type,
         id: a.id,
@@ -1339,6 +1393,116 @@ export function ActionLogsPage({
       })}
     />
   );
+}
+
+function PendingActionRequestsPanel({
+  actions,
+  busyDecision,
+  decisionError,
+  onDecide,
+}: {
+  actions: ActionLog[];
+  busyDecision: { actionId: string; decision: ActionRequestDecisionKind } | null;
+  decisionError: string | null;
+  onDecide?: (actionId: string, decision: ActionRequestDecisionKind) => Promise<void>;
+}) {
+  const visible = actions.slice(0, 4);
+
+  return (
+    <section className="pending-actions" aria-label="Pending action requests">
+      <div className="panel__head">
+        <span className="panel__title">Pending action requests</span>
+        <span className="panel__count">{actions.length}</span>
+        <span className="panel__spacer" />
+        <Pill tone={actions.length > 0 ? "warning" : "ok"}>
+          {actions.length > 0 ? "Awaiting decision" : "Clear"}
+        </Pill>
+      </div>
+
+      {decisionError ? (
+        <div className="pending-actions__error" role="alert">
+          {decisionError}
+        </div>
+      ) : null}
+
+      {visible.length > 0 ? (
+        <div className="pending-actions__list">
+          {visible.map((action) => (
+            <PendingActionRow
+              key={action.id}
+              action={action}
+              busyDecision={busyDecision}
+              onDecide={onDecide}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="pending-actions__empty">No pending action requests</div>
+      )}
+    </section>
+  );
+}
+
+function PendingActionRow({
+  action,
+  busyDecision,
+  onDecide,
+}: {
+  action: ActionLog;
+  busyDecision: { actionId: string; decision: ActionRequestDecisionKind } | null;
+  onDecide?: (actionId: string, decision: ActionRequestDecisionKind) => Promise<void>;
+}) {
+  const readOnly = isDemoAction(action) || !onDecide;
+  const approving =
+    busyDecision?.actionId === action.id && busyDecision.decision === "approve";
+  const rejecting =
+    busyDecision?.actionId === action.id && busyDecision.decision === "reject";
+  const disabled = readOnly || approving || rejecting;
+  const disabledTitle = isDemoAction(action)
+    ? "Demo action logs are read-only"
+    : "Approval API is unavailable";
+
+  return (
+    <article className="pending-action-row">
+      <div className="pending-action-row__main">
+        <div className="pending-action-row__title mono">{action.action_type}</div>
+        <div className="pending-action-row__meta">
+          <span className="mono">{`${action.target_type}:${action.target_id}`}</span>
+          <span>{action.requested_by}</span>
+          <span>{formatRelative(action.requested_at)}</span>
+        </div>
+      </div>
+      <Pill tone={riskTone(action.risk_level)}>{humanize(action.risk_level)} risk</Pill>
+      <div className="pending-action-row__actions">
+        <button
+          type="button"
+          className="btn btn--strong"
+          disabled={disabled}
+          title={readOnly ? disabledTitle : "Approve request"}
+          aria-label={`Approve ${action.action_type} on ${action.target_id}`}
+          onClick={() => void onDecide?.(action.id, "approve")}
+        >
+          <Check aria-hidden="true" />
+          {approving ? "Approving" : "Approve"}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={disabled}
+          title={readOnly ? disabledTitle : "Reject request"}
+          aria-label={`Reject ${action.action_type} on ${action.target_id}`}
+          onClick={() => void onDecide?.(action.id, "reject")}
+        >
+          <CircleX aria-hidden="true" />
+          {rejecting ? "Rejecting" : "Reject"}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function isDemoAction(action: ActionLog): boolean {
+  return action.id.startsWith("action-demo-");
 }
 
 function expiresCell(expires: string): ReactNode {

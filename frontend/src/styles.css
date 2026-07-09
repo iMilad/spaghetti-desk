@@ -528,6 +528,13 @@ p {
   background: var(--color-hover);
 }
 
+.btn:disabled {
+  color: var(--color-text-faint);
+  background: var(--color-subtle);
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
 .btn--strong {
   border-color: var(--color-border-strong);
   color: var(--color-text);
@@ -1047,6 +1054,10 @@ p {
   padding: 20px 24px;
 }
 
+.table-top-content {
+  margin-bottom: 12px;
+}
+
 .toolbar {
   position: relative;
   display: flex;
@@ -1322,6 +1333,78 @@ p {
 
 .table-empty strong {
   color: var(--color-text);
+}
+
+/* ===================== pending actions ===================== */
+
+.pending-actions {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.pending-actions__list {
+  display: grid;
+}
+
+.pending-action-row {
+  display: grid;
+  min-height: 48px;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid var(--color-border-subtle);
+  padding: 8px 14px;
+}
+
+.pending-action-row__main {
+  min-width: 0;
+}
+
+.pending-action-row__title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-action-row__meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 3px;
+  color: var(--color-text-tertiary);
+  font-size: 11.5px;
+}
+
+.pending-action-row__meta span {
+  min-width: 0;
+}
+
+.pending-action-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.pending-actions__error {
+  border-top: 1px solid var(--risk-border);
+  padding: 8px 14px;
+  color: var(--risk-fg);
+  background: var(--risk-bg);
+  font-size: 12px;
+}
+
+.pending-actions__empty {
+  border-top: 1px solid var(--color-border-subtle);
+  padding: 14px;
+  color: var(--color-text-tertiary);
+  font-size: 12.5px;
 }
 
 /* ===================== detail panel ===================== */
@@ -1921,6 +2004,16 @@ p {
     gap: 6px;
     align-items: start;
     padding: 10px 12px;
+  }
+
+  .pending-action-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: start;
+  }
+
+  .pending-action-row__actions {
+    justify-content: flex-start;
   }
 
   .collector-run-row > .pill {
