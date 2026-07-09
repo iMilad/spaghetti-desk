@@ -27,6 +27,7 @@ import type {
   ActionLog,
   ActionRequestDecisionKind,
   CollectorStatus,
+  CurrentOperator,
   DashboardData,
 } from "./types";
 import { getDensity, getTheme, pipelineTone, setDensity, setTheme } from "./ui";
@@ -34,10 +35,21 @@ import type { Density, Tone } from "./ui";
 
 type LoadState =
   | { status: "loading" }
-  | { status: "ready"; appConfig: AppConfig; data: DashboardData; refreshing: boolean }
+  | {
+      status: "ready";
+      appConfig: AppConfig;
+      data: DashboardData;
+      operator: CurrentOperator;
+      refreshing: boolean;
+    }
   | { status: "error"; message: string };
 
-const LOCAL_REVIEWER = "demo-operator";
+const FALLBACK_OPERATOR: CurrentOperator = {
+  id: "local-operator",
+  displayName: "Local Operator",
+  role: "admin",
+  source: "config",
+};
 
 export default function App() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
@@ -63,13 +75,23 @@ export default function App() {
     const request =
       mode === "initial"
         ? fetchInitialAppData()
-        : fetchDashboard().then((dashboard) => ({ appConfig: null, dashboard }));
+        : fetchDashboard().then((dashboard) => ({
+            appConfig: null,
+            dashboard,
+            operator: null,
+          }));
 
     return request
-      .then(({ appConfig, dashboard }) => {
+      .then(({ appConfig, dashboard, operator }) => {
         setState((current) => {
-          if (appConfig) {
-            return { status: "ready", appConfig, data: dashboard, refreshing: false };
+          if (appConfig && operator) {
+            return {
+              status: "ready",
+              appConfig,
+              data: dashboard,
+              operator,
+              refreshing: false,
+            };
           }
           return current.status === "ready"
             ? { ...current, data: dashboard, refreshing: false }
@@ -89,11 +111,10 @@ export default function App() {
   const refresh = useCallback(() => void load("refresh"), [load]);
   const decideActionRequest = useCallback(
     async (actionId: string, decision: ActionRequestDecisionKind) => {
-      const payload = { reviewed_by: LOCAL_REVIEWER };
       const updated =
         decision === "approve"
-          ? await approveActionRequest(actionId, payload)
-          : await rejectActionRequest(actionId, payload);
+          ? await approveActionRequest(actionId, {})
+          : await rejectActionRequest(actionId, {});
 
       setState((current) =>
         current.status === "ready"
@@ -124,6 +145,7 @@ export default function App() {
     <Dashboard
       appConfig={state.appConfig}
       data={state.data}
+      operator={state.operator}
       refreshing={state.refreshing}
       theme={theme}
       onToggleTheme={toggleTheme}
@@ -136,6 +158,7 @@ export default function App() {
 export function Dashboard({
   appConfig = defaultAppConfig,
   data,
+  operator = FALLBACK_OPERATOR,
   refreshing = false,
   theme: themeProp,
   onToggleTheme,
@@ -144,6 +167,7 @@ export function Dashboard({
 }: {
   appConfig?: AppConfig;
   data: DashboardData;
+  operator?: CurrentOperator;
   refreshing?: boolean;
   theme?: "light" | "dark";
   onToggleTheme?: () => void;
@@ -236,6 +260,7 @@ export function Dashboard({
       freshness={freshness}
       collectorHealth={collectorHealth}
       theme={theme}
+      operator={operator}
       refreshing={refreshing}
       onToggleTheme={toggleTheme}
       onRefresh={onRefresh}
@@ -387,6 +412,7 @@ function LoadingScreen({
       enabledViews={getEnabledNavigationItems(defaultAppConfig).map((item) => item.id)}
       freshness={{ tone: "info", label: "Loading…" }}
       theme={theme}
+      operator={FALLBACK_OPERATOR}
       onToggleTheme={onToggleTheme}
       onNavigate={() => undefined}
     >
@@ -429,6 +455,7 @@ function ErrorScreen({
       enabledViews={getEnabledNavigationItems(defaultAppConfig).map((item) => item.id)}
       freshness={{ tone: "risk", label: "Sync failed" }}
       theme={theme}
+      operator={FALLBACK_OPERATOR}
       onToggleTheme={onToggleTheme}
       onNavigate={() => undefined}
     >

@@ -73,16 +73,42 @@ Example payload:
 
 ```json
 {
-  "reviewed_by": "demo-approver",
   "reason": "Demo approval only."
 }
 ```
 
 Approving a pending request records `approval_status: approved`, stores the
-reviewer and decision time, and moves `execution_status` back to `not_started`.
+current operator identity and decision time, and moves `execution_status` back
+to `not_started`.
 Rejecting a pending request records `approval_status: rejected` and
 `execution_status: skipped`.
 
 Neither endpoint runs a script, queues a runner job, or calls an external
 system. Requests that are already approved, rejected, or marked
 `not_required` return a conflict instead of rewriting the decision history.
+
+## Current Operator Identity
+
+`GET /api/v1/operator` returns the operator identity the backend will use for
+approval decisions. The browser does not submit `reviewed_by`; the API resolves
+it from local runtime configuration so approval history cannot be spoofed from a
+form payload.
+
+Public defaults are intentionally generic:
+
+```yaml
+operator:
+  id: local-operator
+  display_name: Local Operator
+  role: admin
+```
+
+Private deployments can override these values with ignored config or
+environment variables:
+
+- `SPAGHETTI_OPERATOR_ID`
+- `SPAGHETTI_OPERATOR_DISPLAY_NAME`
+- `SPAGHETTI_OPERATOR_ROLE`
+
+Do not commit real names, usernames, emails, company roles, hostnames, or
+internal identity provider values to the public repository.

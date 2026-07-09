@@ -15,7 +15,7 @@ from app.actions import (
     reject_action_request,
 )
 from app.collectors.plugins import list_collector_plugin_status
-from app.config import get_app_config, get_runtime_config
+from app.config import get_app_config, get_current_operator, get_runtime_config
 from app.demo_data import get_inventory, get_inventory_summary
 from app.models import (
     VM,
@@ -28,6 +28,7 @@ from app.models import (
     AppConfig,
     CollectorRunPage,
     CollectorStatusResponse,
+    CurrentOperator,
     License,
     LicensePage,
     PageMeta,
@@ -149,6 +150,11 @@ def read_summary():
 @router.get("/app-config", response_model=AppConfig)
 def read_app_config():
     return get_app_config()
+
+
+@router.get("/operator", response_model=CurrentOperator)
+def read_current_operator():
+    return get_current_operator()
 
 
 @router.get("/collectors", response_model=CollectorStatusResponse)
@@ -285,11 +291,13 @@ def approve_recorded_action_request(
     action_id: str,
     payload: ActionRequestDecision,
     session: Annotated[Session, Depends(get_session)],
+    operator: Annotated[CurrentOperator, Depends(get_current_operator)],
 ):
     return _decide_recorded_action_request(
         action_id=action_id,
         payload=payload,
         session=session,
+        operator=operator,
         decision="approve",
     )
 
@@ -302,11 +310,13 @@ def reject_recorded_action_request(
     action_id: str,
     payload: ActionRequestDecision,
     session: Annotated[Session, Depends(get_session)],
+    operator: Annotated[CurrentOperator, Depends(get_current_operator)],
 ):
     return _decide_recorded_action_request(
         action_id=action_id,
         payload=payload,
         session=session,
+        operator=operator,
         decision="reject",
     )
 
@@ -316,6 +326,7 @@ def _decide_recorded_action_request(
     action_id: str,
     payload: ActionRequestDecision,
     session: Session,
+    operator: CurrentOperator,
     decision: str,
 ) -> ActionLog:
     repository = ActionLogRepository(session)
@@ -335,9 +346,9 @@ def _decide_recorded_action_request(
 
     try:
         updated = (
-            approve_action_request(action_log, payload)
+            approve_action_request(action_log, payload, reviewed_by=operator.id)
             if decision == "approve"
-            else reject_action_request(action_log, payload)
+            else reject_action_request(action_log, payload, reviewed_by=operator.id)
         )
         stored = repository.record_action_log(updated)
         session.commit()

@@ -123,6 +123,13 @@ export type ActionLog = {
 
 export type ActionRequestDecisionKind = "approve" | "reject";
 
+export type CurrentOperator = {
+  id: string;
+  displayName: string;
+  role: string;
+  source: string;
+};
+
 export type Pipeline = {
   id: string;
   provider: string;

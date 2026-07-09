@@ -3,6 +3,7 @@ import type {
   ActionLog,
   CollectorRun,
   CollectorStatusResponse,
+  CurrentOperator,
   DashboardData,
   InventorySummary,
   License,
@@ -135,7 +136,6 @@ export async function fetchDashboard(): Promise<DashboardData> {
 }
 
 export type ActionRequestDecisionPayload = {
-  reviewed_by: string;
   reason?: string;
 };
 
@@ -163,12 +163,21 @@ export async function fetchAppConfig(): Promise<AppConfig> {
   return normalizeAppConfig(await getJson<AppConfig>("/api/v1/app-config"));
 }
 
+export async function fetchCurrentOperator(): Promise<CurrentOperator> {
+  return getJson<CurrentOperator>("/api/v1/operator");
+}
+
 export async function fetchInitialAppData(): Promise<{
   appConfig: AppConfig;
   dashboard: DashboardData;
+  operator: CurrentOperator;
 }> {
-  const [appConfig, dashboard] = await Promise.all([fetchAppConfig(), fetchDashboard()]);
-  return { appConfig, dashboard };
+  const [appConfig, dashboard, operator] = await Promise.all([
+    fetchAppConfig(),
+    fetchDashboard(),
+    fetchCurrentOperator(),
+  ]);
+  return { appConfig, dashboard, operator };
 }
 
 export function withActionSummaryCounts(

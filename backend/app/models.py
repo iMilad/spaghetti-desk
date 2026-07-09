@@ -45,6 +45,7 @@ ActionExecutionStatus = Literal[
     "failed",
     "skipped",
 ]
+OperatorIdentitySource = Literal["config", "environment"]
 
 
 class PageMeta(BaseModel):
@@ -176,8 +177,25 @@ class ActionRequestCreate(BaseModel):
 
 
 class ActionRequestDecision(BaseModel):
-    reviewed_by: str = Field(min_length=1, max_length=160)
     reason: str | None = Field(default=None, max_length=500)
+
+
+class CurrentOperator(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = Field(
+        min_length=1,
+        max_length=160,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:@-]*$",
+    )
+    display_name: str = Field(
+        min_length=1,
+        max_length=160,
+        validation_alias=AliasChoices("display_name", "displayName"),
+        serialization_alias="displayName",
+    )
+    role: str = Field(min_length=1, max_length=80)
+    source: OperatorIdentitySource
 
 
 class Pipeline(BaseModel):

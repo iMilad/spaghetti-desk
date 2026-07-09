@@ -19,6 +19,7 @@ import type { ReactNode } from "react";
 
 import type { ViewId } from "./moduleConfig";
 import { Avatar, Pill, SpaghettiMark } from "./ui";
+import type { CurrentOperator } from "./types";
 import type { Tone } from "./ui";
 
 /** Screens include module views plus static shell chrome. */
@@ -121,6 +122,7 @@ export function DashboardFrame({
   freshness,
   collectorHealth = null,
   theme,
+  operator,
   refreshing = false,
   onToggleTheme = () => undefined,
   onRefresh = () => undefined,
@@ -134,6 +136,7 @@ export function DashboardFrame({
   freshness: { tone: Tone; label: string };
   collectorHealth?: { tone: Tone; label: string } | null;
   theme: "light" | "dark";
+  operator: CurrentOperator;
   refreshing?: boolean;
   onToggleTheme?: () => void;
   onRefresh?: () => void;
@@ -181,9 +184,9 @@ export function DashboardFrame({
         </nav>
 
         <div className="nav-user">
-          <Avatar label="operator" />
-          <span className="nav-user__name">operator</span>
-          <span className="nav-user__role">admin</span>
+          <Avatar label={operator.displayName} />
+          <span className="nav-user__name">{operator.displayName}</span>
+          <span className="nav-user__role">{operator.role}</span>
         </div>
       </aside>
 
@@ -251,7 +254,7 @@ export function DashboardFrame({
             >
               <RefreshCcw aria-hidden="true" className={refreshing ? "spin" : undefined} />
             </button>
-            <Avatar label="operator" size="lg" />
+            <Avatar label={operator.displayName} size="lg" />
           </div>
         </header>
 

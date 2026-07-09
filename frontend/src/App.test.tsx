@@ -215,6 +215,8 @@ describe("Dashboard", () => {
     render(<Dashboard data={data} />);
 
     expect(screen.getAllByText("Spaghetti Desk").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Local Operator").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("admin").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();
 
     // KPI strip: one tile per enabled module.
@@ -230,6 +232,23 @@ describe("Dashboard", () => {
     expect(screen.getByText("Demo Pipeline failed")).toBeInTheDocument();
     expect(screen.getByText("demo-build-01 — unreviewed")).toBeInTheDocument();
     expect(screen.getByText("permission.review.sync on permission-demo-001")).toBeInTheDocument();
+  });
+
+  it("renders the configured current operator in the shell", () => {
+    render(
+      <Dashboard
+        data={data}
+        operator={{
+          id: "ops-reviewer",
+          displayName: "Ops Reviewer",
+          role: "auditor",
+          source: "config",
+        }}
+      />,
+    );
+
+    expect(screen.getAllByText("Ops Reviewer").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("auditor").length).toBeGreaterThan(0);
   });
 
   it("navigates between module screens as in-app pages", () => {

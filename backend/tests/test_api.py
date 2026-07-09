@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
+from pytest import MonkeyPatch
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -12,6 +13,15 @@ from app.persistence.database import get_session
 from app.persistence.repositories import ActionLogRepository, CollectorRunRepository
 
 client = TestClient(app)
+
+
+def _clear_operator_env(monkeypatch: MonkeyPatch) -> None:
+    for name in (
+        "SPAGHETTI_OPERATOR_ID",
+        "SPAGHETTI_OPERATOR_DISPLAY_NAME",
+        "SPAGHETTI_OPERATOR_ROLE",
+    ):
+        monkeypatch.delenv(name, raising=False)
 
 
 def test_healthz_returns_ok() -> None:
@@ -85,6 +95,65 @@ ui:
     payload = response.json()
     assert payload["modules"]["vms"]["enabled"] is False
     assert payload["modules"]["vms"]["label"] == "VMs"
+
+
+def test_current_operator_returns_public_default(monkeypatch: MonkeyPatch) -> None:
+    _clear_operator_env(monkeypatch)
+
+    response = client.get("/api/v1/operator")
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": "local-operator",
+        "displayName": "Local Operator",
+        "role": "admin",
+        "source": "config",
+    }
+
+
+def test_current_operator_reads_local_config_override(tmp_path, monkeypatch) -> None:
+    _clear_operator_env(monkeypatch)
+
+    override = tmp_path / "config.yaml"
+    override.write_text(
+        """
+operator:
+  id: local-reviewer
+  display_name: Local Reviewer
+  role: auditor
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SPAGHETTI_CONFIG_PATH", str(override))
+    clear_app_config_cache()
+
+    try:
+        response = client.get("/api/v1/operator")
+    finally:
+        clear_app_config_cache()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": "local-reviewer",
+        "displayName": "Local Reviewer",
+        "role": "auditor",
+        "source": "config",
+    }
+
+
+def test_current_operator_prefers_environment_override(monkeypatch) -> None:
+    monkeypatch.setenv("SPAGHETTI_OPERATOR_ID", "env-reviewer")
+    monkeypatch.setenv("SPAGHETTI_OPERATOR_DISPLAY_NAME", "Environment Reviewer")
+    monkeypatch.setenv("SPAGHETTI_OPERATOR_ROLE", "auditor")
+
+    response = client.get("/api/v1/operator")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": "env-reviewer",
+        "displayName": "Environment Reviewer",
+        "role": "auditor",
+        "source": "environment",
+    }
 
 
 def test_collector_status_keeps_example_plugins_disabled() -> None:
@@ -318,7 +387,7 @@ def test_approve_action_request_records_decision_without_execution(tmp_path) -> 
 
         response = client.post(
             f"/api/v1/action-requests/{action_id}/approve",
-            json={"reviewed_by": "demo-approver", "reason": "Demo approval only."},
+            json={"reason": "Demo approval only."},
         )
 
         with Session(engine) as session:
@@ -329,7 +398,7 @@ def test_approve_action_request_records_decision_without_execution(tmp_path) -> 
     assert response.status_code == 200
     payload = response.json()
     assert payload["approval_status"] == "approved"
-    assert payload["approved_by"] == "demo-approver"
+    assert payload["approved_by"] == "local-operator"
     assert payload["approved_at"] is not None
     assert payload["execution_status"] == "not_started"
     assert payload["started_at"] is None
@@ -365,7 +434,7 @@ def test_reject_action_request_skips_execution(tmp_path) -> None:
 
         response = client.post(
             f"/api/v1/action-requests/{action_id}/reject",
-            json={"reviewed_by": "demo-approver", "reason": "Owner evidence is incomplete."},
+            json={"reason": "Owner evidence is incomplete."},
         )
     finally:
         app.dependency_overrides.clear()
@@ -373,7 +442,7 @@ def test_reject_action_request_skips_execution(tmp_path) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["approval_status"] == "rejected"
-    assert payload["approved_by"] == "demo-approver"
+    assert payload["approved_by"] == "local-operator"
     assert payload["approved_at"] is not None
     assert payload["execution_status"] == "skipped"
     assert payload["started_at"] is None
@@ -409,7 +478,7 @@ def test_action_request_decision_requires_pending_request(tmp_path) -> None:
 
         response = client.post(
             f"/api/v1/action-requests/{action_id}/approve",
-            json={"reviewed_by": "demo-approver"},
+            json={},
         )
     finally:
         app.dependency_overrides.clear()
@@ -430,7 +499,7 @@ def test_action_request_decision_reports_missing_request(tmp_path) -> None:
     try:
         response = client.post(
             "/api/v1/action-requests/action-missing/approve",
-            json={"reviewed_by": "demo-approver"},
+            json={},
         )
     finally:
         app.dependency_overrides.clear()

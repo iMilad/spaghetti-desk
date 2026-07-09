@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-from app.models import AppConfig
+from app.models import AppConfig, CurrentOperator
 
 
 def _project_root() -> Path:
@@ -74,6 +74,57 @@ def get_app_config() -> AppConfig:
     return _load_app_config(str(_configured_config_path()))
 
 
+def get_current_operator() -> CurrentOperator:
+    return _current_operator_from_config(get_runtime_config())
+
+
 def clear_app_config_cache() -> None:
     _load_runtime_config.cache_clear()
     _load_app_config.cache_clear()
+
+
+def _current_operator_from_config(raw_config: Mapping[str, Any]) -> CurrentOperator:
+    operator_config = raw_config.get("operator", {})
+    if operator_config is None:
+        operator_config = {}
+    if not isinstance(operator_config, Mapping):
+        raise ValueError("config operator must be a mapping")
+
+    config_identity = {
+        "id": _string_config_value(operator_config, "id", "local-operator"),
+        "display_name": _string_config_value(operator_config, "display_name", "Local Operator"),
+        "role": _string_config_value(operator_config, "role", "admin"),
+        "source": "config",
+    }
+
+    env_identity = {
+        "id": _env_string("SPAGHETTI_OPERATOR_ID"),
+        "display_name": _env_string("SPAGHETTI_OPERATOR_DISPLAY_NAME"),
+        "role": _env_string("SPAGHETTI_OPERATOR_ROLE"),
+    }
+    if any(value is not None for value in env_identity.values()):
+        config_identity.update(
+            {key: value for key, value in env_identity.items() if value is not None}
+        )
+        config_identity["source"] = "environment"
+
+    return CurrentOperator.model_validate(config_identity)
+
+
+def _string_config_value(
+    values: Mapping[str, Any],
+    key: str,
+    default: str,
+) -> str:
+    value = values.get(key, default)
+    if not isinstance(value, str):
+        raise ValueError(f"config operator.{key} must be a string")
+    return value.strip() or default
+
+
+def _env_string(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None

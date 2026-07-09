@@ -66,6 +66,7 @@ def approve_action_request(
     action_log: ActionLog,
     decision: ActionRequestDecision,
     *,
+    reviewed_by: str,
     decided_at: datetime | None = None,
 ) -> ActionLog:
     timestamp = decided_at or datetime.now(UTC)
@@ -78,7 +79,7 @@ def approve_action_request(
     return action_log.model_copy(
         update={
             "approval_status": "approved",
-            "approved_by": decision.reviewed_by,
+            "approved_by": reviewed_by,
             "approved_at": timestamp,
             "execution_status": "not_started",
             "after_state": after_state,
@@ -94,6 +95,7 @@ def reject_action_request(
     action_log: ActionLog,
     decision: ActionRequestDecision,
     *,
+    reviewed_by: str,
     decided_at: datetime | None = None,
 ) -> ActionLog:
     timestamp = decided_at or datetime.now(UTC)
@@ -106,7 +108,7 @@ def reject_action_request(
     return action_log.model_copy(
         update={
             "approval_status": "rejected",
-            "approved_by": decision.reviewed_by,
+            "approved_by": reviewed_by,
             "approved_at": timestamp,
             "execution_status": "skipped",
             "after_state": after_state,

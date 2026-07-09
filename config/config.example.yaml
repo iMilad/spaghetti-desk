@@ -3,6 +3,11 @@ app:
   environment: development
   public_base_url: http://localhost:5173
 
+operator:
+  id: local-operator
+  display_name: Local Operator
+  role: admin
+
 ui:
   preferences:
     overview_widget_storage_key: spaghetti-desk.overview-widgets.v1
