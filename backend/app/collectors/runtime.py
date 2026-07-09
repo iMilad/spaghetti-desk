@@ -7,6 +7,7 @@ from typing import Protocol
 from app.collectors.plugins import CollectorPlugin, build_collector_registry
 from app.collectors.registry import CollectorRegistry
 from app.collectors.scheduler import build_collector_scheduler
+from app.persistence.schema import assert_collector_schema_ready
 
 
 class Scheduler(Protocol):
@@ -18,6 +19,7 @@ class Scheduler(Protocol):
 
 
 SchedulerFactory = Callable[..., Scheduler]
+SchemaChecker = Callable[[], None]
 
 
 @dataclass
@@ -43,6 +45,7 @@ def start_collector_runtime(
     *,
     plugins: Iterable[CollectorPlugin] | None = None,
     scheduler_factory: SchedulerFactory = build_collector_scheduler,
+    schema_checker: SchemaChecker = assert_collector_schema_ready,
 ) -> CollectorRuntime:
     registry = build_collector_registry(raw_config, plugins=plugins)
     collector_settings = _collector_settings(raw_config)
@@ -55,6 +58,7 @@ def start_collector_runtime(
         return CollectorRuntime(registry=registry)
 
     dry_run = not _as_bool(collector_settings.get("write_to_local_inventory"), default=True)
+    schema_checker()
     scheduler = scheduler_factory(registry, dry_run=dry_run)
     scheduler.start()
     return CollectorRuntime(

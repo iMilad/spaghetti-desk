@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
+import pytest
 from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,7 @@ from app.models import Pipeline
 from app.persistence.base import Base
 from app.persistence.models import LicenseRecord, ServiceRecord, VMRecord
 from app.persistence.repositories import CollectorRunRepository, PipelineRepository
+from app.persistence.schema import InventorySchemaNotReady, assert_collector_schema_ready
 
 
 def test_inventory_metadata_creates_tables_and_indexes() -> None:
@@ -44,6 +46,20 @@ def test_inventory_metadata_creates_tables_and_indexes() -> None:
     assert "ix_pipelines_provider_status" in pipeline_indexes
     assert "ix_pipelines_last_run_at" in pipeline_indexes
     assert "ix_collector_runs_collector_started_at" in collector_run_indexes
+
+
+def test_collector_schema_check_reports_missing_tables() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+
+    with pytest.raises(InventorySchemaNotReady, match="collector_runs"):
+        assert_collector_schema_ready(engine)
+
+
+def test_collector_schema_check_accepts_initialized_tables() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    assert_collector_schema_ready(engine)
 
 
 def test_service_and_vm_records_round_trip() -> None:

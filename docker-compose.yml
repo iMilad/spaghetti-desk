@@ -32,6 +32,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      SPAGHETTI_DATABASE_URL: postgresql+psycopg://spaghetti:spaghetti@postgres:5432/spaghetti
+    command: ["uv", "run", "alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   frontend:
     build:

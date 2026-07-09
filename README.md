@@ -30,7 +30,8 @@ External-system collectors follow the same optional model. The core app
 discovers installed collector plugins, but no real external collector is enabled
 by default. For example, Jenkins support lives in `plugins/jenkins` and must be
 installed and enabled with private deployment config before it can read Jenkins
-data. To create a non-Jenkins collector, use the generic template in
+data. To create a non-Jenkins collector, use `scripts/scaffold-collector` or
+the generic template in
 [docs/collector-plugin-template.md](docs/collector-plugin-template.md).
 
 ## Architecture
@@ -75,6 +76,14 @@ available:
 docker compose up --build
 ```
 
+Docker Compose runs the `migrate` service before the backend starts. For
+backend-only development, initialize or upgrade the local database explicitly:
+
+```bash
+cd backend
+uv run alembic upgrade head
+```
+
 Local development entry points:
 
 - Backend API: `http://localhost:8000`
@@ -87,6 +96,7 @@ Backend-only development:
 ```bash
 cd backend
 uv sync --all-extras --dev
+uv run alembic upgrade head
 uv run pytest
 uv run uvicorn app.main:app --reload
 ```

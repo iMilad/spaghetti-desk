@@ -10,6 +10,8 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.24 /uv /uvx /bin/
 
 COPY backend/pyproject.toml backend/uv.lock /app/backend/
 COPY backend/app /app/backend/app
+COPY backend/alembic.ini /app/backend/alembic.ini
+COPY backend/migrations /app/backend/migrations
 COPY examples /app/examples
 
 WORKDIR /app/backend

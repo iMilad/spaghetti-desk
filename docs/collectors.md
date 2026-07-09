@@ -28,7 +28,11 @@ Jira, or vSphere.
 Collector plugins are optional Python packages. They expose entry points in the
 `spaghetti_desk.collectors` group and are registered only when installed in the
 backend environment. See [Install and Configure a Collector](collector-plugin-template.md)
-for a generic non-Jenkins plugin template.
+for a generic non-Jenkins plugin template, or run:
+
+```bash
+scripts/scaffold-collector example-ci
+```
 
 Core responsibilities:
 
@@ -108,6 +112,16 @@ registry from installed plugin entry points, and starts the APScheduler runtime
 only when the global collector switch is enabled and at least one installed
 plugin is enabled. Public demo config keeps the switch off, so no scheduler is
 started and no external systems are contacted by default.
+
+Before starting scheduled jobs, the runtime verifies that the local collector
+read-model tables exist. If the database has not been initialized, startup
+fails with a migration message instead of letting collectors fail later in the
+background. Run:
+
+```bash
+cd backend
+uv run alembic upgrade head
+```
 
 Every scheduled collector run receives a database session and records a
 `collector_runs` row with status, timing, record counts, dry-run state, message,

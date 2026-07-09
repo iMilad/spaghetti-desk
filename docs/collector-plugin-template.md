@@ -6,7 +6,11 @@ core app discovers installed packages through Python entry points and reads
 collector output from the local database.
 
 This page shows a generic CI collector. Replace `example_ci` with your own
-tool name.
+tool name, or generate the same package shape:
+
+```bash
+scripts/scaffold-collector example-ci
+```
 
 ## 1. Create the Package
 

@@ -242,6 +242,7 @@ def test_collector_runtime_starts_scheduler_for_enabled_installed_collectors() -
             scheduler,
             dry_run=dry_run,
         ),
+        schema_checker=lambda: None,
     )
 
     assert runtime.started is True
@@ -254,6 +255,37 @@ def test_collector_runtime_starts_scheduler_for_enabled_installed_collectors() -
 
     assert runtime.started is False
     assert scheduler.stopped is True
+
+
+def test_collector_runtime_requires_initialized_schema_before_starting() -> None:
+    raw_config = {
+        "collectors": {
+            "enabled": True,
+            "plugins": {
+                "stub": {
+                    "enabled": True,
+                    "interval_seconds": 30,
+                }
+            },
+        }
+    }
+    scheduler = StubScheduler()
+
+    def fail_schema_check() -> None:
+        raise RuntimeError("Run `cd backend && uv run alembic upgrade head`.")
+
+    with pytest.raises(RuntimeError, match="alembic upgrade head"):
+        start_collector_runtime(
+            raw_config,
+            plugins=[StubPlugin()],
+            scheduler_factory=lambda registry, dry_run: _configure_scheduler(
+                scheduler,
+                dry_run=dry_run,
+            ),
+            schema_checker=fail_schema_check,
+        )
+
+    assert scheduler.started is False
 
 
 def _configure_scheduler(scheduler: StubScheduler, *, dry_run: bool) -> StubScheduler:

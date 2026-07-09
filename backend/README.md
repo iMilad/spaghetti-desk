@@ -22,7 +22,9 @@ uv run alembic upgrade head
 ```
 
 `SPAGHETTI_DATABASE_URL` controls the target database. Docker Compose points it
-at the local PostgreSQL service; local one-off checks can use SQLite.
+at the local PostgreSQL service; local one-off checks can use SQLite. The
+collector runtime checks that its local read-model tables exist before starting
+scheduled jobs, so run migrations before enabling collectors.
 
 Optional collector plugins can be installed into the backend environment when a
 deployment needs them:
