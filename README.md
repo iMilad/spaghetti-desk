@@ -110,9 +110,80 @@ npm run dev
 ```
 
 The frontend needs the backend API to load inventory. When the app is served
-from `localhost` or `127.0.0.1` and `VITE_API_BASE_URL` is not set, it defaults
-to `http://127.0.0.1:8000`. Set `VITE_API_BASE_URL` if your backend runs
-somewhere else.
+from the Vite dev server and `VITE_API_BASE_URL` is not set, API calls use the
+same origin and Vite proxies `/api` and `/healthz` to
+`http://127.0.0.1:8000`. Set `VITE_API_BASE_URL` only when your backend runs
+somewhere else and browser CORS is configured for that origin.
+
+## Checking With Real Data
+
+The public repo starts in demo mode. Real external data should be enabled only
+from private deployment config outside this repository.
+
+Current real-data support is intentionally narrow:
+
+- Jenkins pipeline collection is available as an optional plugin.
+- Services, VMs, licenses, permissions, and other systems still use demo data
+  until their own collectors or importers are added.
+- Normal UI page loads read local API/database state; they should not call
+  Jenkins or other external systems directly.
+
+Recommended first real-data check:
+
+1. Create a private config file outside the repository, for example
+   `/path/outside/spaghetti-desk-private/config/local.yaml`.
+2. Install the Jenkins collector only in the deployment that uses Jenkins.
+3. Run database migrations.
+4. Start with `write_to_local_inventory: false` to prove connectivity without
+   writing pipeline rows.
+5. Switch `write_to_local_inventory: true` when you want collected Jenkins jobs
+   to appear in the Pipeline Catalog.
+
+Example private Jenkins config:
+
+```yaml
+collectors:
+  enabled: true
+  default_interval_seconds: 300
+  write_to_local_inventory: false
+  plugins:
+    jenkins:
+      enabled: true
+      interval_seconds: 300
+      base_url: https://jenkins.example.internal
+      username_env: JENKINS_USERNAME
+      token_env: JENKINS_TOKEN
+      job_include_patterns:
+        - "platform-*"
+      default_owner_team: Platform
+      timeout_seconds: 10
+      verify_tls: true
+```
+
+Use environment variables for credentials:
+
+```bash
+export SPAGHETTI_CONFIG_PATH=/path/outside/spaghetti-desk-private/config/local.yaml
+export JENKINS_USERNAME=...
+export JENKINS_TOKEN=...
+```
+
+Install and run locally:
+
+```bash
+cd backend
+./.venv/bin/pip install -e ../plugins/jenkins
+./.venv/bin/alembic upgrade head
+./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+The collector scheduler starts with the backend when `collectors.enabled` is
+`true`. It records collector run history in the local database. A manual "run
+collector now" endpoint/button is not implemented yet; it is the next practical
+step for faster real-data testing.
+
+Never commit the private config file, real Jenkins URLs, job patterns,
+usernames, tokens, team mappings, or exported inventory data.
 
 ## Data Safety
 
