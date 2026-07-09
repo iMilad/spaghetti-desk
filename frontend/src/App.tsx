@@ -213,7 +213,9 @@ export function Dashboard({
       {activeScreen === "agents" ? (
         <AgentsPage sessions={data.agentSessions} loadedAt={loadedAt} />
       ) : null}
-      {activeScreen === "collectors" ? <CollectorsPage collectors={data.collectors} /> : null}
+      {activeScreen === "collectors" ? (
+        <CollectorsPage collectors={data.collectors} runs={data.collectorRuns} />
+      ) : null}
       {activeScreen === "settings" ? (
         <SettingsPage appConfig={appConfig} theme={theme} onToggleTheme={toggleTheme} />
       ) : null}

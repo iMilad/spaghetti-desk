@@ -1,10 +1,16 @@
 import { Boxes } from "lucide-react";
 
-import type { CollectorStatus } from "./types";
-import { Pill, titleCase } from "./ui";
+import type { CollectorRun, CollectorStatus } from "./types";
+import { formatAbsolute, formatRelative, humanize, Pill, titleCase } from "./ui";
 import type { Tone } from "./ui";
 
-export function CollectorsPage({ collectors }: { collectors: CollectorStatus[] }) {
+export function CollectorsPage({
+  collectors,
+  runs,
+}: {
+  collectors: CollectorStatus[];
+  runs: CollectorRun[];
+}) {
   const installed = collectors.filter((collector) => collector.installed);
   const available = collectors.filter((collector) => !collector.installed);
 
@@ -57,6 +63,25 @@ export function CollectorsPage({ collectors }: { collectors: CollectorStatus[] }
         inventory first — collectors sync in the background so page loads never call external
         systems live. Manual retries and scheduled runs append audited run records.
       </p>
+
+      <section className="collector-runs" aria-label="Recent collector runs">
+        <div className="panel__head">
+          <span className="panel__title">Recent run history</span>
+          <span className="panel__count mono">{runs.length}</span>
+        </div>
+        {runs.length > 0 ? (
+          <div className="collector-run-list">
+            {runs.map((run) => (
+              <CollectorRunRow run={run} key={run.id} />
+            ))}
+          </div>
+        ) : (
+          <div className="table-empty">
+            <strong>No collector runs recorded</strong>
+            <span>Runs appear here after an enabled collector is scheduled or retried.</span>
+          </div>
+        )}
+      </section>
     </section>
   );
 }
@@ -117,6 +142,35 @@ function InstalledCard({ collector }: { collector: CollectorStatus }) {
       </div>
     </article>
   );
+}
+
+function CollectorRunRow({ run }: { run: CollectorRun }) {
+  return (
+    <div className="collector-run-row">
+      <Pill tone={collectorRunTone(run.status)}>{humanize(run.status)}</Pill>
+      <span className="collector-run-row__name">{titleCase(run.collector_name)}</span>
+      <span className="collector-run-row__message">{run.message || "Run completed"}</span>
+      <span className="collector-run-row__stats mono">
+        {run.records_seen} seen / {run.records_changed} changed
+      </span>
+      <span className="collector-run-row__time mono" title={formatAbsolute(run.started_at)}>
+        {formatRelative(run.started_at)}
+      </span>
+    </div>
+  );
+}
+
+function collectorRunTone(status: string): Tone {
+  switch (status) {
+    case "success":
+      return "ok";
+    case "failed":
+      return "risk";
+    case "skipped":
+      return "neutral";
+    default:
+      return "warning";
+  }
 }
 
 function formatInterval(seconds: number | null): string {

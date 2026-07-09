@@ -27,6 +27,9 @@ data/private/
 secrets/
 runtime/
 agent-sessions/
+*.db
+*.db-shm
+*.db-wal
 *.pem
 *.key
 *.p12

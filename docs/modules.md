@@ -29,6 +29,10 @@ Current dedicated views:
 - Licenses
 - Permissions
 - Agents
+- Collectors
+
+The shell also contains a Settings screen for local UI preferences and a
+disabled Actions & audit navigation item for the future action-runner surface.
 
 ## Feature Modules
 

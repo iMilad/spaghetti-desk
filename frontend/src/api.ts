@@ -1,5 +1,6 @@
 import type {
   AgentSession,
+  CollectorRun,
   CollectorStatusResponse,
   DashboardData,
   InventorySummary,
@@ -62,17 +63,38 @@ async function getJson<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function getOptionalJson<T>(path: string, fallback: T): Promise<T> {
+  try {
+    return await getJson<T>(path);
+  } catch {
+    return fallback;
+  }
+}
+
 export async function fetchDashboard(): Promise<DashboardData> {
-  const [summary, services, vms, licenses, agentSessions, permissions, collectors] =
-    await Promise.all([
-      getJson<InventorySummary>("/api/v1/summary"),
-      getJson<Page<Service>>("/api/v1/services?limit=10"),
-      getJson<Page<VM>>("/api/v1/vms?limit=10"),
-      getJson<Page<License>>("/api/v1/licenses?limit=10"),
-      getJson<Page<AgentSession>>("/api/v1/agent-sessions?limit=10"),
-      getJson<Page<Permission>>("/api/v1/permissions?limit=10"),
-      getJson<CollectorStatusResponse>("/api/v1/collectors"),
-    ]);
+  const emptyCollectorRuns: Page<CollectorRun> = {
+    meta: { total: 0, limit: 20, offset: 0 },
+    items: [],
+  };
+  const [
+    summary,
+    services,
+    vms,
+    licenses,
+    agentSessions,
+    permissions,
+    collectors,
+    collectorRuns,
+  ] = await Promise.all([
+    getJson<InventorySummary>("/api/v1/summary"),
+    getJson<Page<Service>>("/api/v1/services?limit=10"),
+    getJson<Page<VM>>("/api/v1/vms?limit=10"),
+    getJson<Page<License>>("/api/v1/licenses?limit=10"),
+    getJson<Page<AgentSession>>("/api/v1/agent-sessions?limit=10"),
+    getJson<Page<Permission>>("/api/v1/permissions?limit=10"),
+    getJson<CollectorStatusResponse>("/api/v1/collectors"),
+    getOptionalJson<Page<CollectorRun>>("/api/v1/collector-runs?limit=20", emptyCollectorRuns),
+  ]);
 
   return {
     summary,
@@ -82,6 +104,7 @@ export async function fetchDashboard(): Promise<DashboardData> {
     agentSessions: agentSessions.items,
     permissions: permissions.items,
     collectors: collectors.collectors,
+    collectorRuns: collectorRuns.items,
   };
 }
 

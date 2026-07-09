@@ -105,6 +105,21 @@ export type CollectorStatusResponse = {
   collectors: CollectorStatus[];
 };
 
+export type CollectorRun = {
+  id: string;
+  run_id: string;
+  collector_name: string;
+  status: string;
+  dry_run: boolean;
+  started_at: string;
+  finished_at: string | null;
+  duration_ms: number;
+  records_seen: number;
+  records_changed: number;
+  message: string;
+  metadata: Record<string, string>;
+};
+
 export type DashboardData = {
   summary: InventorySummary;
   services: Service[];
@@ -113,4 +128,5 @@ export type DashboardData = {
   permissions: Permission[];
   agentSessions: AgentSession[];
   collectors: CollectorStatus[];
+  collectorRuns: CollectorRun[];
 };

@@ -14,6 +14,8 @@ The first framework layer provides:
 - Python entry-point based collector plugin discovery
 - Local `pipelines` and `collector_runs` persistence for collected CI/CD state
   and collector observability
+- FastAPI startup wiring that builds the collector registry from runtime config
+  and starts the background scheduler only when `collectors.enabled: true`
 
 No real external collector is enabled by default. The core app must stay useful
 for companies that do not use a specific tool such as Jenkins, GitHub Actions,
@@ -74,3 +76,17 @@ and team mappings belong in private deployment config outside this repository.
 When enabled, the Jenkins collector reads Jenkins job metadata and writes
 normalized `pipeline` records to the local database. Normal dashboard/API reads
 should query the local database rather than Jenkins.
+
+## Runtime Behavior
+
+At API startup the backend reads merged runtime config, builds a collector
+registry from installed plugin entry points, and starts the APScheduler runtime
+only when the global collector switch is enabled and at least one installed
+plugin is enabled. Public demo config keeps the switch off, so no scheduler is
+started and no external systems are contacted by default.
+
+Every scheduled collector run receives a database session and records a
+`collector_runs` row with status, timing, record counts, dry-run state, message,
+and metadata. The frontend Collectors page reads recent run history from the
+local API/database read model; it does not call Jenkins or any other external
+tool directly.
