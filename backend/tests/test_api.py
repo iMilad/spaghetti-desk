@@ -1,7 +1,15 @@
-from fastapi.testclient import TestClient
+from datetime import UTC, datetime
 
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+from app.collectors import CollectorContext, CollectorResult
 from app.config import clear_app_config_cache
 from app.main import app
+from app.persistence.base import Base
+from app.persistence.database import get_session
+from app.persistence.repositories import CollectorRunRepository
 
 client = TestClient(app)
 
@@ -83,7 +91,45 @@ def test_collector_status_keeps_example_plugins_disabled() -> None:
     jenkins = next(item for item in payload["collectors"] if item["name"] == "jenkins")
     assert jenkins["installed"] is False
     assert jenkins["enabled"] is False
+    assert jenkins["configured"] is False
     assert jenkins["interval_seconds"] is None
+    assert jenkins["last_run"] is None
+
+
+def test_collector_status_includes_latest_local_run(tmp_path) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'inventory.db'}")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        CollectorRunRepository(session).record_result(
+            context=CollectorContext(
+                run_id="api-run",
+                started_at=datetime(2026, 7, 4, 8, 0, tzinfo=UTC),
+                session=session,
+            ),
+            result=CollectorResult(
+                collector_name="jenkins",
+                status="skipped",
+                message="Jenkins base_url is not configured.",
+            ),
+        )
+        session.commit()
+
+    def override_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    try:
+        response = client.get("/api/v1/collectors")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    jenkins = next(item for item in payload["collectors"] if item["name"] == "jenkins")
+    assert jenkins["last_run"]["run_id"] == "api-run"
+    assert jenkins["last_run"]["status"] == "skipped"
 
 
 def test_services_are_paginated_and_filterable() -> None:

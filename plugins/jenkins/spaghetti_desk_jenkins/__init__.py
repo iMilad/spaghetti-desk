@@ -149,6 +149,13 @@ class JenkinsCollectorPlugin:
             )
         ]
 
+    def is_configured(self, config: CollectorPluginConfig) -> bool:
+        collector = JenkinsCollector(
+            settings=JenkinsSettings.from_mapping(config.settings),
+            interval_seconds=config.interval_seconds,
+        )
+        return collector._skip_reason() is None
+
 
 plugin = JenkinsCollectorPlugin()
 

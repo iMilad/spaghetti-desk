@@ -7,6 +7,8 @@ must read local state instead of proxying external systems live.
 The first framework layer provides:
 
 - `Collector` protocol with `name`, `interval_seconds`, and `collect()`
+- Collector plugin status reporting for installed, enabled, configured, and
+  last-run state
 - `CollectorContext` with run metadata, optional config, and optional DB session
 - `CollectorResult` with status, record counts, timing, and metadata
 - `CollectorRegistry` for duplicate-safe registration and run-once execution
@@ -41,6 +43,23 @@ Plugin responsibilities:
 - Handle that system's pagination, auth, timeouts, and rate limits.
 - Normalize external records into local Spaghetti Desk models.
 - Upsert local database records idempotently.
+- Optionally expose `is_configured(config)` so the registry can show whether
+  required private settings are present without contacting the external system.
+
+## Plugin Registry
+
+`GET /api/v1/collectors` returns the deployment's plugin registry. Each row
+reports:
+
+- whether the collector package is installed
+- whether scheduling is enabled by global and plugin config
+- whether plugin-specific configuration is complete
+- the latest local collector run, when one exists
+
+The frontend Collectors page renders those fields in one registry table and
+keeps recent run history below it for audit context. Missing persistence tables
+do not break the registry; last run is shown as empty until the local database
+is initialized.
 
 ## Jenkins Plugin
 
@@ -91,6 +110,6 @@ started and no external systems are contacted by default.
 
 Every scheduled collector run receives a database session and records a
 `collector_runs` row with status, timing, record counts, dry-run state, message,
-and metadata. The frontend Collectors page reads recent run history from the
-local API/database read model; it does not call Jenkins or any other external
-tool directly.
+and metadata. The frontend Collectors page reads registry and run history from
+the local API/database read model; it does not call Jenkins or any other
+external tool directly.

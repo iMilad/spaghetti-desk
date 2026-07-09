@@ -117,7 +117,22 @@ const data: DashboardData = {
       name: "jenkins",
       installed: false,
       enabled: false,
+      configured: false,
       interval_seconds: null,
+      last_run: {
+        id: "run-demo:jenkins",
+        run_id: "run-demo",
+        collector_name: "jenkins",
+        status: "skipped",
+        dry_run: true,
+        started_at: "2026-07-04T00:00:00Z",
+        finished_at: "2026-07-04T00:00:01Z",
+        duration_ms: 12,
+        records_seen: 0,
+        records_changed: 0,
+        message: "Jenkins base_url is not configured.",
+        metadata: { provider: "jenkins" },
+      },
     },
   ],
   collectorRuns: [
@@ -203,8 +218,11 @@ describe("Dashboard", () => {
     expect(window.location.hash).toBe("#agents");
 
     fireEvent.click(screen.getByRole("button", { name: /Collectors/ }));
-    expect(screen.getByRole("heading", { level: 1, name: "Collectors" })).toBeInTheDocument();
-    expect(screen.getByText("Available — not installed")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Collectors" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Plugin registry" })).toBeInTheDocument();
+    expect(screen.getByText("collector-jenkins")).toBeInTheDocument();
+    expect(screen.getAllByText("No").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getAllByText("Skipped").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("Recent run history")).toBeInTheDocument();
     expect(screen.getByText("Jenkins base_url is not configured.")).toBeInTheDocument();
     expect(window.location.hash).toBe("#collectors");

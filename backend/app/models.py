@@ -140,6 +140,19 @@ class CollectorRun(BaseModel):
     metadata: dict[str, str] = Field(default_factory=dict)
 
 
+class CollectorPluginState(BaseModel):
+    name: str
+    installed: bool
+    enabled: bool
+    configured: bool
+    interval_seconds: int | None = None
+    last_run: CollectorRun | None = None
+
+
+class CollectorStatusResponse(BaseModel):
+    collectors: list[CollectorPluginState]
+
+
 class ServicePage(BaseModel):
     meta: PageMeta
     items: list[Service]

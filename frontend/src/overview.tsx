@@ -397,10 +397,17 @@ function buildFindings(
 /* ------------------------------------------------------------ subcomponents */
 
 function CollectorHealthRow({ collector }: { collector: CollectorStatus }) {
-  const tone: Tone = collector.installed && collector.enabled ? "ok" : "neutral";
+  const tone: Tone =
+    collector.installed && collector.enabled && collector.configured
+      ? "ok"
+      : collector.installed && collector.enabled
+        ? "warning"
+        : "neutral";
   const muted = !collector.installed;
   const meta = collector.enabled
-    ? `every ${formatInterval(collector.interval_seconds)}`
+    ? collector.configured
+      ? `every ${formatInterval(collector.interval_seconds)}`
+      : "config missing"
     : collector.installed
       ? "disabled"
       : "not installed";
@@ -411,7 +418,11 @@ function CollectorHealthRow({ collector }: { collector: CollectorStatus }) {
         {collector.name}
       </span>
       <span className="health-row__spacer" />
-      <span className={`health-row__meta ${collector.enabled ? "" : "health-row__meta--muted"}`}>
+      <span
+        className={`health-row__meta ${
+          collector.enabled && collector.configured ? "" : "health-row__meta--muted"
+        }`}
+      >
         {meta}
       </span>
     </div>

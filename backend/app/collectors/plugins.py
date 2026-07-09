@@ -24,6 +24,7 @@ class CollectorPluginStatus:
     name: str
     installed: bool
     enabled: bool
+    configured: bool
     interval_seconds: int | None = None
 
 
@@ -73,15 +74,15 @@ def list_collector_plugin_status(
     plugin_settings = _plugin_settings(settings)
     default_interval = _as_positive_int(settings.get("default_interval_seconds"), default=300)
     if plugins is not None:
-        discovered = {plugin.name for plugin in plugins}
+        discovered = {plugin.name: plugin for plugin in plugins}
     else:
-        discovered = {plugin.name for plugin in discover_collector_plugins()}
-    names = sorted(discovered | set(plugin_settings.keys()))
+        discovered = {plugin.name: plugin for plugin in discover_collector_plugins()}
+    names = sorted(set(discovered) | set(plugin_settings.keys()))
 
     return [
         _plugin_status(
             name=name,
-            installed=name in discovered,
+            plugin=discovered.get(name),
             global_enabled=global_enabled,
             plugin_settings=plugin_settings,
             default_interval=default_interval,
@@ -129,19 +130,39 @@ def _plugin_config(
 def _plugin_status(
     *,
     name: str,
-    installed: bool,
+    plugin: CollectorPlugin | None,
     global_enabled: bool,
     plugin_settings: Mapping[str, Mapping[str, object]],
     default_interval: int,
 ) -> CollectorPluginStatus:
     config = _plugin_config(name, plugin_settings, default_interval)
+    installed = plugin is not None
     enabled = global_enabled and installed and config.enabled
+    configured = installed and _plugin_is_configured(plugin, config)
     return CollectorPluginStatus(
         name=name,
         installed=installed,
         enabled=enabled,
+        configured=configured,
         interval_seconds=config.interval_seconds if enabled else None,
     )
+
+
+def _plugin_is_configured(
+    plugin: CollectorPlugin | None,
+    config: CollectorPluginConfig,
+) -> bool:
+    if plugin is None:
+        return False
+
+    is_configured = getattr(plugin, "is_configured", None)
+    if callable(is_configured):
+        try:
+            return bool(is_configured(config))
+        except Exception:  # noqa: BLE001
+            return False
+
+    return config.enabled or bool(config.settings)
 
 
 def _as_bool(value: object, *, default: bool) -> bool:

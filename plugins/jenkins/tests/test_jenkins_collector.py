@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from spaghetti_desk_jenkins import JenkinsCollector, JenkinsSettings
+from spaghetti_desk_jenkins import JenkinsCollector, JenkinsCollectorPlugin, JenkinsSettings
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.collectors import CollectorContext
+from app.collectors.plugins import CollectorPluginConfig
 from app.persistence.base import Base
 from app.persistence.repositories import PipelineRepository
 
@@ -23,6 +24,18 @@ def test_jenkins_collector_skips_public_example_config() -> None:
 
     assert result.status == "skipped"
     assert "base_url" in result.message
+
+
+def test_jenkins_plugin_reports_public_example_config_as_unconfigured() -> None:
+    plugin = JenkinsCollectorPlugin()
+    config = CollectorPluginConfig(
+        name="jenkins",
+        enabled=True,
+        interval_seconds=300,
+        settings={"base_url": "https://jenkins.example.invalid"},
+    )
+
+    assert plugin.is_configured(config) is False
 
 
 def test_jenkins_collector_writes_pipeline_records(monkeypatch) -> None:

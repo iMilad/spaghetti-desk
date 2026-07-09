@@ -448,6 +448,9 @@ function buildBadges(
 
 function collectorNavTone(collectors: CollectorStatus[]): Tone {
   const installed = collectors.filter((collector) => collector.installed);
+  if (installed.some((collector) => collector.enabled && !collector.configured)) {
+    return "warning";
+  }
   if (installed.some((collector) => !collector.enabled)) {
     return "warning";
   }
@@ -460,6 +463,13 @@ function collectorNavTone(collectors: CollectorStatus[]): Tone {
 function collectorAttention(
   collectors: CollectorStatus[],
 ): { tone: Tone; label: string } | null {
+  const unconfigured = collectors.filter(
+    (collector) => collector.installed && collector.enabled && !collector.configured,
+  ).length;
+  if (unconfigured > 0) {
+    return { tone: "warning", label: `${unconfigured} unconfigured` };
+  }
+
   const disabled = collectors.filter(
     (collector) => collector.installed && !collector.enabled,
   ).length;

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from sqlalchemy import Select, func, select
@@ -208,6 +208,38 @@ class CollectorRunRepository:
             total=total,
             items=[collector_run_from_record(record) for record in records],
         )
+
+    def latest_runs_by_collector(
+        self,
+        collector_names: Iterable[str],
+    ) -> dict[str, CollectorRun]:
+        names = sorted(set(collector_names))
+        if not names:
+            return {}
+
+        ranked = (
+            select(
+                CollectorRunRecord.id,
+                func.row_number()
+                .over(
+                    partition_by=CollectorRunRecord.collector_name,
+                    order_by=CollectorRunRecord.started_at.desc(),
+                )
+                .label("rank"),
+            )
+            .where(CollectorRunRecord.collector_name.in_(names))
+            .subquery()
+        )
+        records = self._session.scalars(
+            select(CollectorRunRecord)
+            .join(ranked, CollectorRunRecord.id == ranked.c.id)
+            .where(ranked.c.rank == 1)
+        ).all()
+
+        return {
+            record.collector_name: collector_run_from_record(record)
+            for record in records
+        }
 
 
 def service_from_record(record: ServiceRecord) -> Service:

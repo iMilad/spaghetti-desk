@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.collectors.plugins import list_collector_plugin_status
@@ -16,6 +17,7 @@ from app.models import (
     AgentSessionPage,
     AppConfig,
     CollectorRunPage,
+    CollectorStatusResponse,
     License,
     LicensePage,
     PageMeta,
@@ -78,19 +80,29 @@ def read_app_config():
     return get_app_config()
 
 
-@router.get("/collectors")
-def list_collectors():
-    return {
-        "collectors": [
+@router.get("/collectors", response_model=CollectorStatusResponse)
+def list_collectors(session: Annotated[Session, Depends(get_session)]):
+    statuses = list_collector_plugin_status(get_runtime_config())
+    try:
+        latest_runs = CollectorRunRepository(session).latest_runs_by_collector(
+            status.name for status in statuses
+        )
+    except SQLAlchemyError:
+        latest_runs = {}
+
+    return CollectorStatusResponse(
+        collectors=[
             {
                 "name": status.name,
                 "installed": status.installed,
                 "enabled": status.enabled,
+                "configured": status.configured,
                 "interval_seconds": status.interval_seconds,
+                "last_run": latest_runs.get(status.name),
             }
-            for status in list_collector_plugin_status(get_runtime_config())
+            for status in statuses
         ]
-    }
+    )
 
 
 @router.get("/services", response_model=ServicePage)

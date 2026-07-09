@@ -112,7 +112,9 @@ export type CollectorStatus = {
   name: string;
   installed: boolean;
   enabled: boolean;
+  configured: boolean;
   interval_seconds: number | null;
+  last_run: CollectorRun | null;
 };
 
 export type CollectorStatusResponse = {

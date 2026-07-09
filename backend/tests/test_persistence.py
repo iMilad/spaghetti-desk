@@ -5,10 +5,11 @@ from datetime import UTC, date, datetime
 from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.orm import Session
 
+from app.collectors import CollectorContext, CollectorResult
 from app.models import Pipeline
 from app.persistence.base import Base
 from app.persistence.models import LicenseRecord, ServiceRecord, VMRecord
-from app.persistence.repositories import PipelineRepository
+from app.persistence.repositories import CollectorRunRepository, PipelineRepository
 
 
 def test_inventory_metadata_creates_tables_and_indexes() -> None:
@@ -167,3 +168,57 @@ def test_pipeline_repository_upserts_collected_pipeline_records() -> None:
     assert updated is True
     assert page.total == 1
     assert page.items[0].status == "failed"
+
+
+def test_collector_run_repository_returns_latest_run_per_collector() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        repository = CollectorRunRepository(session)
+        repository.record_result(
+            context=CollectorContext(
+                run_id="old-run",
+                started_at=datetime(2026, 7, 1, 8, 0, tzinfo=UTC),
+                session=session,
+            ),
+            result=CollectorResult(
+                collector_name="jenkins",
+                status="skipped",
+                message="old",
+            ),
+        )
+        repository.record_result(
+            context=CollectorContext(
+                run_id="new-run",
+                started_at=datetime(2026, 7, 2, 8, 0, tzinfo=UTC),
+                session=session,
+            ),
+            result=CollectorResult(
+                collector_name="jenkins",
+                status="success",
+                records_seen=4,
+                records_changed=2,
+                message="new",
+            ),
+        )
+        repository.record_result(
+            context=CollectorContext(
+                run_id="other-run",
+                started_at=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
+                session=session,
+            ),
+            result=CollectorResult(
+                collector_name="github-actions",
+                status="failed",
+                message="failed",
+            ),
+        )
+        session.commit()
+
+        latest = repository.latest_runs_by_collector(["jenkins", "github-actions", "missing"])
+
+    assert set(latest) == {"jenkins", "github-actions"}
+    assert latest["jenkins"].run_id == "new-run"
+    assert latest["jenkins"].records_seen == 4
+    assert latest["github-actions"].status == "failed"

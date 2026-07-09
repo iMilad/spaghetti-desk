@@ -52,6 +52,17 @@ class StubPlugin:
 
 
 @dataclass
+class ConfigAwarePlugin:
+    name: str = "aware"
+
+    def build_collectors(self, config: CollectorPluginConfig):
+        return [StubCollector(name=self.name, interval_seconds=config.interval_seconds)]
+
+    def is_configured(self, config: CollectorPluginConfig) -> bool:
+        return config.settings.get("base_url") == "https://aware.example.invalid"
+
+
+@dataclass
 class StubScheduler:
     started: bool = False
     stopped: bool = False
@@ -145,6 +156,7 @@ def test_collector_plugins_are_disabled_until_global_and_plugin_config_enable_th
     assert list(registry.names()) == []
     assert statuses[0].installed is True
     assert statuses[0].enabled is False
+    assert statuses[0].configured is True
 
     raw_config["collectors"]["enabled"] = True
     registry = build_collector_registry(raw_config, plugins=[StubPlugin()])
@@ -153,6 +165,35 @@ def test_collector_plugins_are_disabled_until_global_and_plugin_config_enable_th
     assert list(registry.names()) == ["stub"]
     assert registry.get("stub").interval_seconds == 30
     assert statuses[0].enabled is True
+    assert statuses[0].configured is True
+
+
+def test_collector_plugin_status_uses_plugin_configuration_check() -> None:
+    raw_config = {
+        "collectors": {
+            "enabled": True,
+            "plugins": {
+                "aware": {
+                    "enabled": True,
+                    "interval_seconds": 30,
+                    "base_url": "https://aware.example.invalid",
+                },
+                "declared-only": {
+                    "enabled": True,
+                },
+            },
+        }
+    }
+
+    statuses = list_collector_plugin_status(raw_config, plugins=[ConfigAwarePlugin()])
+    by_name = {status.name: status for status in statuses}
+
+    assert by_name["aware"].installed is True
+    assert by_name["aware"].enabled is True
+    assert by_name["aware"].configured is True
+    assert by_name["declared-only"].installed is False
+    assert by_name["declared-only"].enabled is False
+    assert by_name["declared-only"].configured is False
 
 
 def test_collector_runtime_does_not_start_scheduler_when_global_config_is_disabled() -> None:
