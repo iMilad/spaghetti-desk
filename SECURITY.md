@@ -25,5 +25,5 @@ they have been triaged.
 - Mutating actions should be audited and require explicit approval where
   appropriate.
 - Permission visibility should be a core feature, not an afterthought.
-- Secret scanning should be added to CI before the first public release.
-
+- Secret scanning runs in CI. Run `./scripts/security-check.sh` locally before
+  publishing or opening a pull request.

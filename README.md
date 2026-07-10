@@ -150,7 +150,7 @@ collectors:
     jenkins:
       enabled: true
       interval_seconds: 300
-      base_url: https://jenkins.example.internal
+      base_url: https://jenkins.example.invalid
       username_env: JENKINS_USERNAME
       token_env: JENKINS_TOKEN
       job_include_patterns:
@@ -208,6 +208,12 @@ Private data must stay out of this repository:
 - `runtime/`
 - `agent-sessions/` if sessions contain internal data
 - Real hostnames, URLs, IPs, usernames, emails, license data, or exports
+
+Run the local public-safety check before publishing or opening a pull request:
+
+```bash
+./scripts/security-check.sh
+```
 
 ## Roadmap
 

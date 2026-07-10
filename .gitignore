@@ -8,6 +8,7 @@ __pycache__/
 htmlcov/
 .venv/
 venv/
+.mypy_cache/
 
 # Node
 node_modules/
@@ -30,10 +31,20 @@ agent-sessions/
 *.db
 *.db-shm
 *.db-wal
+*.sqlite
+*.sqlite3
+*.sql
+*.dump
+*.backup
+*.bak
 *.pem
 *.key
 *.p12
 *.pfx
+*.log
+logs/
+tmp/
+*.pid
 
 # Real inventory or operational exports
 exports/
@@ -41,6 +52,18 @@ inventory/
 *.csv
 *.xlsx
 *.xls
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+notebooks/
+*.ipynb
+.ipynb_checkpoints/
+screenshots/
+artifacts/
+private-docs/
 
 # System/editor
 .DS_Store
