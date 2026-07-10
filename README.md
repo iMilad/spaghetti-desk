@@ -1,249 +1,246 @@
 # Spaghetti Desk
 
-Spaghetti Desk is an open-source DevOps Control Center for service inventory,
-VM ownership, CI/CD visibility, license tracking, permission visibility, agent
-session history, and audited operations.
+> **Know what is running. Know who owns it. Know what needs attention.**
 
-The goal is to give DevOps operators one fast place to answer operational
-questions without turning the portal into a slow live proxy for every tool in
-the stack.
+[![Release](https://img.shields.io/github/v/release/iMilad/spaghetti-desk?label=release)](https://github.com/iMilad/spaghetti-desk/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/iMilad/spaghetti-desk/ci.yml?branch=main&label=CI)](https://github.com/iMilad/spaghetti-desk/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/iMilad/spaghetti-desk)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
+[![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111)](frontend/package.json)
 
-## What It Tracks
+**Spaghetti Desk is an open-source DevOps control center for the operational
+facts scattered across your stack.** It brings services, virtual machines,
+pipelines, ownership, expiries, permissions, agent activity, collectors, and
+audited actions into one fast, searchable workspace.
 
-- DevOps services and where they run
-- VM ownership, purpose, freshness, and review status
-- License, certificate, token, and support expiry dates
-- Pipeline relationships across repositories, CI jobs, artifacts, and targets
-- User and permission state across systems
-- Monitoring summary signals
-- Agent sessions and automation outcomes
-- Audited action requests and script results
+Most internal portals become slow because every screen calls every external
+tool. Spaghetti Desk takes a different approach: background collectors
+normalize data into a local PostgreSQL inventory, and the operator console
+reads that local state. Pages stay responsive, integrations stay optional, and
+the system remains useful even when an external tool is unavailable.
 
-## Component-Wise Modules
+## Stop Hunting, Start Operating
 
-Spaghetti Desk is built as a component-wise app. Deployments can enable only the
-modules they need and choose which widgets appear on the overview. Public
-defaults live in `config/config.example.yaml` and are served to the frontend by
-`GET /api/v1/app-config`; see `docs/modules.md`.
+Operational answers are often split across CI servers, VM platforms,
+spreadsheets, ticket systems, monitoring tools, and individual memory.
+Spaghetti Desk is designed to answer the questions that cross those boundaries:
 
-External-system collectors follow the same optional model. The core app
-discovers installed collector plugins, but no real external collector is enabled
-by default. For example, Jenkins support lives in `plugins/jenkins` and must be
-installed and enabled with private deployment config before it can read Jenkins
-data. To create a non-Jenkins collector, use `scripts/scaffold-collector` or
-the generic template in
-[docs/collector-plugin-template.md](docs/collector-plugin-template.md).
+- What services and pipelines are running, and are they healthy?
+- Which VMs have unknown, stale, or disputed ownership?
+- What licenses, certificates, support contracts, or tokens expire next?
+- Where do risky, stale, or inconsistent permissions exist?
+- What did an operator, collector, or coding agent do recently?
+- Which action requests are waiting for approval, and what evidence was kept?
 
-## Architecture
+## What You Get
 
-```text
-Browser UI
-  |
-Backend API
-  |
-PostgreSQL Inventory DB
-  |
-Collectors + Script/Action Runner
-  |
-External DevOps systems
-```
+| Surface | What it gives an operator |
+| --- | --- |
+| **Overview** | Service health, VM ownership gaps, renewal pressure, permission risk, agent activity, action state, and an attention queue |
+| **Services** | A searchable catalog of owners, runtime location, maintenance state, monitoring state, and known risks |
+| **Pipelines** | Repository, CI job, artifact, target, owner, status, and last-run visibility |
+| **VMs** | Ownership confidence, environment, purpose, capacity, patch state, freshness, and review status |
+| **Licenses** | Renewal and expiry tracking for licenses, support, certificates, service accounts, and tokens |
+| **Permissions** | Admin access, stale accounts, service accounts, drift, and review findings across systems |
+| **Agents** | Session history, commands, approvals, files changed, outcomes, and supporting links |
+| **Audit** | Sanitized action requests, approval decisions, execution state, before/after evidence, and result history |
+| **Collectors** | Installed, enabled, configured, and last-run status for every collector plugin |
 
-Performance is a first-class design constraint:
+Deployments can enable only the modules they need and choose which widgets
+appear on the overview. Navigation and overview composition are served by the
+backend, so the UI follows deployment configuration instead of hard-coded
+assumptions.
 
-- UI pages should read from local API/database state.
-- Collectors should sync external systems in the background.
-- API list endpoints should support pagination and filtering from the start.
-- Expensive external calls should not happen during normal page rendering.
-- Mutating operations should be explicit, validated, audited, and safe to review.
+## Built for Real Operations
 
-## Current Status
+- **Fast by architecture.** Normal page loads read the local inventory instead
+  of proxying several external APIs.
+- **Extensible by design.** Collector plugins connect specific tools while the
+  core owns normalized models, APIs, scheduling, and run history.
+- **Approval-aware.** Action requests are recorded and sanitized before a
+  future runner is allowed to mutate an external system.
+- **Observable.** Collector runs, agent sessions, requests, decisions, and
+  outcomes remain visible as operational history.
+- **Safe to evaluate.** The default deployment uses synthetic demo data,
+  disables real integrations, and makes no external collector calls.
+- **Public/private by construction.** Source and examples stay public-safe;
+  real URLs, credentials, mappings, and inventory remain in private deployment
+  configuration.
 
-This repository is in the initial bootstrap phase. It contains:
+## Run It Locally
 
-- A FastAPI backend skeleton with public-safe demo data
-- A React and TypeScript frontend skeleton
-- Docker Compose local runtime scaffolding
-- Example configuration
-- Tests and CI skeleton
-- Public/private data separation rules
-
-## Quick Start
-
-The project is designed to run through Docker Compose once dependencies are
-available:
+You need Docker with Docker Compose. Then run:
 
 ```bash
 docker compose up --build
 ```
 
-Docker Compose runs the `migrate` service before the backend starts. For
-backend-only development, initialize or upgrade the local database explicitly:
+The Compose stack starts PostgreSQL, applies Alembic migrations, launches the
+FastAPI backend, and serves the React frontend.
+
+| Open | URL |
+| --- | --- |
+| Operator console | [http://localhost:5173](http://localhost:5173) |
+| API documentation | [http://localhost:8000/docs](http://localhost:8000/docs) |
+| Backend health | [http://localhost:8000/healthz](http://localhost:8000/healthz) |
+| PostgreSQL | `localhost:5432` |
+
+The first run is a self-contained demo. No Jenkins server, cloud account,
+company inventory, or credentials are required.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Systems["External DevOps systems"] --> Collectors["Background collectors"]
+    Collectors --> Database[("PostgreSQL<br/>inventory and audit history")]
+    Database <--> API["FastAPI"]
+    API <--> UI["React operator console"]
+```
+
+The core runtime follows four rules:
+
+1. Collect external data in the background.
+2. Normalize it into stable local models.
+3. Keep page reads local, paginated, and filterable.
+4. Record mutating intent before controlled execution.
+
+The current action layer implements local request, approval, rejection, and
+audit state. It deliberately does **not** execute scripts or change external
+systems yet.
+
+## Add Your Systems
+
+Collector plugins are optional Python packages discovered through the
+`spaghetti_desk.collectors` entry-point group. The repository includes an
+optional Jenkins collector, while public defaults keep every external
+integration disabled.
+
+Create a new collector package from the project scaffold:
+
+```bash
+scripts/scaffold-collector example-ci
+```
+
+For Jenkins, install the included plugin into the backend environment:
 
 ```bash
 cd backend
-uv run alembic upgrade head
+uv pip install -e ../plugins/jenkins
 ```
 
-Local development entry points:
+Enable collectors only from private deployment configuration outside this
+repository. Credentials are referenced through environment-variable names and
+must never be committed.
 
-- Backend API: `http://localhost:8000`
-- API docs: `http://localhost:8000/docs`
-- Frontend: `http://localhost:5173`
-- PostgreSQL: `localhost:5432`
+See the [collector framework](docs/collectors.md) and the
+[collector plugin template](docs/collector-plugin-template.md) for the runtime
+contract and a complete example.
 
-Backend-only development:
+## Project Status
+
+Spaghetti Desk `v0.2.0` is an early, working foundation intended for local
+evaluation and extension.
+
+Already implemented:
+
+- A responsive operator console with overview and dedicated catalog views
+- FastAPI APIs with filtering, pagination, configuration, and local demo data
+- PostgreSQL persistence, SQLAlchemy repositories, and Alembic migrations
+- Backend-configured modules, navigation, and overview widgets
+- APScheduler collector runtime, entry-point plugin discovery, and run history
+- Optional Jenkins pipeline collection into the local read model
+- Action request, approval, rejection, sanitization, and audit workflows
+- Backend and frontend tests, CI, release automation, and secret scanning
+
+Deliberately next:
+
+- Production authentication and role enforcement
+- More collectors and importers for VM, source, artifact, and identity systems
+- A controlled action runner for approved operations
+- Ownership review and expiry notification workflows
+- Broader production hardening and deployment guidance
+
+It is not yet a replacement for an identity provider, monitoring platform, or
+production change-management system. It is the inventory and control layer that
+connects their operational context.
+
+## Development
+
+Backend setup:
 
 ```bash
 cd backend
 uv sync --all-extras --dev
 uv run alembic upgrade head
-uv run pytest
 uv run uvicorn app.main:app --reload
 ```
 
-Frontend development:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The frontend needs the backend API to load inventory. When the app is served
-from the Vite dev server and `VITE_API_BASE_URL` is not set, API calls use the
-same origin and Vite proxies `/api` and `/healthz` to
-`http://127.0.0.1:8000`. Set `VITE_API_BASE_URL` only when your backend runs
-somewhere else and browser CORS is configured for that origin.
-
-## Checking With Real Data
-
-The public repo starts in demo mode. Real external data should be enabled only
-from private deployment config outside this repository.
-
-Current real-data support is intentionally narrow:
-
-- Jenkins pipeline collection is available as an optional plugin.
-- Services, VMs, licenses, permissions, and other systems still use demo data
-  until their own collectors or importers are added.
-- Normal UI page loads read local API/database state; they should not call
-  Jenkins or other external systems directly.
-
-Recommended first real-data check:
-
-1. Create a private config file outside the repository, for example
-   `/path/outside/spaghetti-desk-private/config/local.yaml`.
-2. Install the Jenkins collector only in the deployment that uses Jenkins.
-3. Run database migrations.
-4. Start with `write_to_local_inventory: false` to prove connectivity without
-   writing pipeline rows.
-5. Switch `write_to_local_inventory: true` when you want collected Jenkins jobs
-   to appear in the Pipeline Catalog.
-
-Example private Jenkins config:
-
-```yaml
-collectors:
-  enabled: true
-  default_interval_seconds: 300
-  write_to_local_inventory: false
-  plugins:
-    jenkins:
-      enabled: true
-      interval_seconds: 300
-      base_url: https://jenkins.example.invalid
-      username_env: JENKINS_USERNAME
-      token_env: JENKINS_TOKEN
-      job_include_patterns:
-        - "platform-*"
-      default_owner_team: Platform
-      timeout_seconds: 10
-      verify_tls: true
-```
-
-Use environment variables for credentials:
-
-```bash
-export SPAGHETTI_CONFIG_PATH=/path/outside/spaghetti-desk-private/config/local.yaml
-export JENKINS_USERNAME=...
-export JENKINS_TOKEN=...
-```
-
-Install and run locally:
+Backend checks:
 
 ```bash
 cd backend
-./.venv/bin/pip install -e ../plugins/jenkins
-./.venv/bin/alembic upgrade head
-./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv run ruff check .
+uv run pytest
 ```
 
-The collector scheduler starts with the backend when `collectors.enabled` is
-`true`. It records collector run history in the local database. A manual "run
-collector now" endpoint/button is not implemented yet; it is the next practical
-step for faster real-data testing.
+Frontend setup:
 
-Never commit the private config file, real Jenkins URLs, job patterns,
-usernames, tokens, team mappings, or exported inventory data.
+```bash
+cd frontend
+npm ci
+npm run dev
+```
 
-## Data Safety
+Frontend checks:
 
-This is intended to be a public GitHub project. Do not commit real company
-data. The repository should only contain fake, example, or demo data.
+```bash
+cd frontend
+npm run typecheck
+npm test
+npm run build
+```
 
-Safe public examples:
+When `VITE_API_BASE_URL` is unset, the Vite development server proxies
+`/api` and `/healthz` to `http://127.0.0.1:8000`.
 
-- `.env.example`
-- `config/config.example.yaml`
-- `examples/demo-data/`
-- `docs/`
-- `docker-compose.yml`
-- `.github/workflows/`
+## Documentation
 
-Private data must stay out of this repository:
+| Guide | Focus |
+| --- | --- |
+| [Architecture](docs/architecture.md) | Runtime boundaries and data flow |
+| [Modules](docs/modules.md) | Deployment-controlled navigation and widgets |
+| [Persistence](docs/persistence.md) | Database models, repositories, and migrations |
+| [Collectors](docs/collectors.md) | Plugin discovery, scheduling, and local writes |
+| [Action and audit](docs/action-audit.md) | Requests, decisions, sanitization, and evidence |
+| [Data boundaries](docs/data-boundaries.md) | Public source versus private deployment data |
+| [Contributing](CONTRIBUTING.md) | Development principles and contribution workflow |
 
-- `.env`
-- `config/local.yaml`
-- `data/private/`
-- `secrets/`
-- `runtime/`
-- `agent-sessions/` if sessions contain internal data
-- Real hostnames, URLs, IPs, usernames, emails, license data, or exports
+## Security and Data Safety
 
-Run the local public-safety check before publishing or opening a pull request:
+Spaghetti Desk is intended to remain safe as a public repository. Use fake
+data in source, tests, examples, screenshots, and documentation. Keep real
+hostnames, IP addresses, URLs, identities, credentials, license details, and
+inventory exports outside the repository.
+
+Run the local public-safety check before opening a pull request:
 
 ```bash
 ./scripts/security-check.sh
 ```
 
-## Roadmap
+Report vulnerabilities through the process in [SECURITY.md](SECURITY.md).
 
-1. Project bootstrap and public-safe demo data
-2. Inventory model and API persistence
-3. Service catalog
-4. VM ownership catalog
-5. License and expiry center
-6. Agent session log
-7. Permission and audit log
-8. Action request and audit foundation
-9. Dashboard UI
-10. Background collectors
-11. Controlled action runner
-12. GitHub Actions CI and release workflow
+## Releases
+
+The project uses [Semantic Versioning](https://semver.org/) and Conventional
+Commits. Release Please maintains the changelog and release PRs; version tags
+build backend Python distributions and the frontend production bundle.
+
+See [CHANGELOG.md](CHANGELOG.md) and the
+[GitHub releases](https://github.com/iMilad/spaghetti-desk/releases) for
+published changes.
 
 ## License
 
-MIT
-
-## Versioning and Releases
-
-Spaghetti Desk uses Conventional Commits and Semantic Versioning. Release state
-is tracked in `version.txt`, `.release-please-manifest.json`, and
-`CHANGELOG.md`.
-
-Tag pushes run the release workflow, which builds backend Python distributions
-with `uv build`, packages the frontend production bundle, and publishes GitHub
-release assets for `vX.Y.Z` tags.
-
-Release Please is configured for changelog and release-PR automation. Automatic
-release PR creation requires either the GitHub repository setting that allows
-Actions to create pull requests or a configured release token.
+Spaghetti Desk is available under the [MIT License](LICENSE).
