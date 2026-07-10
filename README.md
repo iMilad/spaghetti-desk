@@ -2,9 +2,9 @@
 
 > **Know what is running. Know who owns it. Know what needs attention.**
 
-[![Release](https://img.shields.io/github/v/release/iMilad/spaghetti-desk?label=release)](https://github.com/iMilad/spaghetti-desk/releases)
-[![CI](https://img.shields.io/github/actions/workflow/status/iMilad/spaghetti-desk/ci.yml?branch=main&label=CI)](https://github.com/iMilad/spaghetti-desk/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/github/license/iMilad/spaghetti-desk)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/iMilad/SpaghettiDesk?label=release)](https://github.com/iMilad/SpaghettiDesk/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/iMilad/SpaghettiDesk/ci.yml?branch=main&label=CI)](https://github.com/iMilad/SpaghettiDesk/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/iMilad/SpaghettiDesk)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
 [![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111)](frontend/package.json)
 
@@ -88,6 +88,27 @@ FastAPI backend, and serves the React frontend.
 The first run is a self-contained demo. No Jenkins server, cloud account,
 company inventory, or credentials are required.
 
+### Run a Published Release
+
+Each GitHub release includes a digest-pinned Compose file and a matching
+environment template. Download both assets, set a private PostgreSQL password,
+and start the application:
+
+```bash
+cp spaghetti-desk-vX.Y.Z.env.example .env
+# Set POSTGRES_PASSWORD in .env before continuing.
+docker compose \
+  --env-file .env \
+  --file spaghetti-desk-vX.Y.Z-compose.yaml \
+  up --detach
+```
+
+The release deployment serves the compiled frontend and API together at
+`http://localhost:8080`, keeps PostgreSQL off the host network, and runs
+database migrations before starting the application. See
+[Container releases](docs/container-release.md) for verification, upgrades,
+private configuration, and maintainer setup.
+
 ## Architecture
 
 ```mermaid
@@ -151,6 +172,7 @@ Already implemented:
 - APScheduler collector runtime, entry-point plugin discovery, and run history
 - Optional Jenkins pipeline collection into the local read model
 - Action request, approval, rejection, sanitization, and audit workflows
+- A combined multi-platform release image and digest-pinned Compose deployment
 - Backend and frontend tests, CI, release automation, and secret scanning
 
 Deliberately next:
@@ -213,6 +235,7 @@ When `VITE_API_BASE_URL` is unset, the Vite development server proxies
 | [Persistence](docs/persistence.md) | Database models, repositories, and migrations |
 | [Collectors](docs/collectors.md) | Plugin discovery, scheduling, and local writes |
 | [Action and audit](docs/action-audit.md) | Requests, decisions, sanitization, and evidence |
+| [Container releases](docs/container-release.md) | Docker Hub images, Compose deployment, and release setup |
 | [Data boundaries](docs/data-boundaries.md) | Public source versus private deployment data |
 | [Contributing](CONTRIBUTING.md) | Development principles and contribution workflow |
 
@@ -235,10 +258,12 @@ Report vulnerabilities through the process in [SECURITY.md](SECURITY.md).
 
 The project uses [Semantic Versioning](https://semver.org/) and Conventional
 Commits. Release Please maintains the changelog and release PRs; version tags
-build backend Python distributions and the frontend production bundle.
+build backend Python distributions, the frontend production bundle, and a
+multi-platform Docker Hub image. Each release receives a digest-pinned Compose
+file, an environment template, and SHA-256 checksums.
 
 See [CHANGELOG.md](CHANGELOG.md) and the
-[GitHub releases](https://github.com/iMilad/spaghetti-desk/releases) for
+[GitHub releases](https://github.com/iMilad/SpaghettiDesk/releases) for
 published changes.
 
 ## License

@@ -50,6 +50,54 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  container:
+    name: Release container
+    runs-on: ubuntu-latest
+    needs:
+      - backend
+      - frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build combined release image
+        run: |
+          docker build \
+            --build-arg APP_VERSION=ci \
+            --build-arg VCS_REF="$GITHUB_SHA" \
+            --tag spaghetti-desk:ci \
+            .
+
+      - name: Smoke test image
+        run: |
+          container_id=$(docker run --detach --publish 127.0.0.1:18000:8000 spaghetti-desk:ci)
+          trap 'docker logs "$container_id"; docker rm --force "$container_id" >/dev/null' EXIT
+
+          ready=false
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18000/healthz >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" != true ]; then
+            echo "container did not become healthy" >&2
+            exit 1
+          fi
+
+          curl --fail --silent http://127.0.0.1:18000/ | grep --quiet '<div id="root"></div>'
+          curl --fail --silent http://127.0.0.1:18000/api/v1/app-config | grep --quiet '"modules"'
+
+      - name: Validate release Compose template
+        env:
+          POSTGRES_PASSWORD: ci-password
+        run: |
+          ./scripts/render-release-compose.sh \
+            docker.io/example/spaghetti-desk@sha256:0000000000000000000000000000000000000000000000000000000000000000 \
+            "$RUNNER_TEMP/spaghetti-desk-compose.yaml"
+          docker compose --file "$RUNNER_TEMP/spaghetti-desk-compose.yaml" config --quiet
+
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest

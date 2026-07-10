@@ -1,0 +1,63 @@
+name: spaghetti-desk
+
+x-spaghetti-environment: &spaghetti-environment
+  SPAGHETTI_ENV: production
+  SPAGHETTI_CONFIG_PATH: /app/config/config.example.yaml
+  SPAGHETTI_DEMO_DATA_DIR: /app/examples/demo-data
+  SPAGHETTI_DATABASE_URL: "postgresql+psycopg://spaghetti:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/spaghetti"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: spaghetti
+      POSTGRES_USER: spaghetti
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spaghetti -d spaghetti"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  migrate:
+    image: __SPAGHETTI_DESK_IMAGE__
+    environment: *spaghetti-environment
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+
+  app:
+    image: __SPAGHETTI_DESK_IMAGE__
+    environment: *spaghetti-environment
+    ports:
+      - "${SPAGHETTI_DESK_PORT:-8080}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
