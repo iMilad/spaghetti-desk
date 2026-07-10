@@ -2,9 +2,9 @@
 
 > **Know what is running. Know who owns it. Know what needs attention.**
 
-[![Release](https://img.shields.io/github/v/release/iMilad/SpaghettiDesk?label=release)](https://github.com/iMilad/SpaghettiDesk/releases)
-[![CI](https://img.shields.io/github/actions/workflow/status/iMilad/SpaghettiDesk/ci.yml?branch=main&label=CI)](https://github.com/iMilad/SpaghettiDesk/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/github/license/iMilad/SpaghettiDesk)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/iMilad/spaghetti-desk?label=release)](https://github.com/iMilad/spaghetti-desk/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/iMilad/spaghetti-desk/ci.yml?branch=main&label=CI)](https://github.com/iMilad/spaghetti-desk/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/iMilad/spaghetti-desk)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
 [![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111)](frontend/package.json)
 
@@ -257,13 +257,13 @@ Report vulnerabilities through the process in [SECURITY.md](SECURITY.md).
 ## Releases
 
 The project uses [Semantic Versioning](https://semver.org/) and Conventional
-Commits. Release Please maintains the changelog and release PRs; version tags
-build backend Python distributions, the frontend production bundle, and a
-multi-platform Docker Hub image. Each release receives a digest-pinned Compose
-file, an environment template, and SHA-256 checksums.
+Commits. Maintainers publish from `main` with the manual **Publish Release**
+workflow. It creates the version tag and GitHub release, publishes the
+multi-platform Docker Hub image, and attaches a digest-pinned Compose file,
+environment template, and SHA-256 checksums.
 
 See [CHANGELOG.md](CHANGELOG.md) and the
-[GitHub releases](https://github.com/iMilad/SpaghettiDesk/releases) for
+[GitHub releases](https://github.com/iMilad/spaghetti-desk/releases) for
 published changes.
 
 ## License

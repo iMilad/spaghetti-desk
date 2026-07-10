@@ -33,7 +33,7 @@ ARG VCS_REF=unknown
 
 LABEL org.opencontainers.image.title="Spaghetti Desk" \
       org.opencontainers.image.description="Open-source DevOps control center" \
-      org.opencontainers.image.source="https://github.com/iMilad/SpaghettiDesk" \
+      org.opencontainers.image.source="https://github.com/iMilad/spaghetti-desk" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.version="${APP_VERSION}" \
       org.opencontainers.image.licenses="MIT"

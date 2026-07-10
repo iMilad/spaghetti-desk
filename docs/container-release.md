@@ -21,7 +21,6 @@ Each GitHub release includes these container deployment assets:
 
 - `spaghetti-desk-vX.Y.Z-compose.yaml`
 - `spaghetti-desk-vX.Y.Z.env.example`
-- `CONTAINER_SHA256SUMS`
 - `SHA256SUMS`
 
 Download the files for the same release, verify their checksums, and create the
@@ -29,10 +28,10 @@ local environment file:
 
 ```bash
 # Linux
-sha256sum --check CONTAINER_SHA256SUMS
+sha256sum --check SHA256SUMS
 
 # macOS
-shasum --algorithm 256 --check CONTAINER_SHA256SUMS
+shasum --algorithm 256 --check SHA256SUMS
 
 cp spaghetti-desk-vX.Y.Z.env.example .env
 ```
@@ -91,7 +90,7 @@ the application starts.
 
 ## Maintainer Setup
 
-Container publishing runs only for `v*` tags. Before creating a release:
+Before creating a release:
 
 1. Create a public Docker Hub repository named `spaghetti-desk`.
 2. Create a Docker Hub access token with Read/Write permission and an expiry.
@@ -113,6 +112,13 @@ Pre-release tags do not move `latest`. The workflow publishes Linux AMD64 and
 ARM64 manifests, OCI metadata, provenance, and an SBOM. It then renders the
 release Compose file with the immutable multi-platform digest and uploads all
 release assets with checksums.
+
+To publish, make sure CI is green on `main`, open **Actions**, select
+**Publish Release**, choose **Run workflow**, and enter the semantic version
+without a leading `v`, such as `0.3.0`. The workflow rejects non-`main` runs,
+invalid versions, and existing tags. It then publishes the image, creates the
+version tag and GitHub release, generates release notes, and uploads the
+deployment assets.
 
 ## Local Validation
 
