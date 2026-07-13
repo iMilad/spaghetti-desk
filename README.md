@@ -137,8 +137,19 @@ Collector plugins are optional Python packages discovered through the
 optional Jenkins collector, while public defaults keep every external
 integration disabled.
 
-For a local private configuration, copy the public-safe templates and edit only
-their ignored local copies:
+For a backend running directly on your computer, place private non-secret
+settings in the standard user config location:
+
+```bash
+mkdir -p ~/.config/spaghetti-desk
+cp config/private.example.yaml ~/.config/spaghetti-desk/config.yaml
+```
+
+The backend discovers this file automatically. An explicit
+`SPAGHETTI_CONFIG_PATH` takes precedence.
+
+For Docker Compose, copy the public-safe templates into ignored repository
+files so Compose can mount them into the container:
 
 ```bash
 cp config/private.example.yaml config/local.yaml

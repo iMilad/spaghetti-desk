@@ -22,8 +22,28 @@ def _default_config_path() -> Path:
     return _project_root() / "config" / "config.example.yaml"
 
 
+def _user_config_path() -> Path:
+    xdg_config_home = os.getenv("XDG_CONFIG_HOME")
+    if xdg_config_home:
+        config_home = Path(xdg_config_home)
+    elif os.name == "nt" and os.getenv("APPDATA"):
+        config_home = Path(os.environ["APPDATA"])
+    else:
+        config_home = Path.home() / ".config"
+
+    return config_home / "spaghetti-desk" / "config.yaml"
+
+
 def _configured_config_path() -> Path:
-    return Path(os.getenv("SPAGHETTI_CONFIG_PATH", _default_config_path()))
+    explicit_path = os.getenv("SPAGHETTI_CONFIG_PATH")
+    if explicit_path:
+        return Path(explicit_path).expanduser()
+
+    user_path = _user_config_path()
+    if user_path.is_file():
+        return user_path
+
+    return _default_config_path()
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:

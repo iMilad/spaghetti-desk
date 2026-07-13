@@ -1,5 +1,15 @@
 # Product TODO
 
+## Secret Management
+
+- [ ] Add a pluggable secret-manager interface so configuration stores secret
+  references rather than raw tokens, passwords, or credentials.
+- [ ] Implement HashiCorp Vault as the first managed secret backend, using a
+  least-privilege machine identity and audited secret access.
+- [ ] Keep environment variables available for local bootstrap and allow future
+  adapters for other secret managers.
+- [ ] Never store raw external-system secrets in PostgreSQL or application logs.
+
 ## User Inventory and Access Visibility
 
 - [ ] Replace the standalone **Permissions** module with a user-centered

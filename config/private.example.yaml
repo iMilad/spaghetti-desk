@@ -1,6 +1,7 @@
 # Public-safe template for a private deployment override.
-# Copy this file to config/local.yaml and replace example values locally.
-# config/local.yaml is ignored by Git and must never be committed.
+# For a host backend, copy this to ~/.config/spaghetti-desk/config.yaml.
+# For Docker Compose, copy it to the ignored config/local.yaml mount source.
+# Never commit the private copy.
 
 operator:
   id: local-operator

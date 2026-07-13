@@ -31,6 +31,57 @@ def test_runtime_config_reports_missing_private_file(
         get_runtime_config()
 
 
+def test_runtime_config_uses_user_config_when_present(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SPAGHETTI_CONFIG_PATH", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    config = tmp_path / "spaghetti-desk" / "config.yaml"
+    config.parent.mkdir()
+    config.write_text(
+        """
+operator:
+  display_name: Home Config Operator
+""",
+        encoding="utf-8",
+    )
+
+    runtime_config = get_runtime_config()
+
+    assert runtime_config["operator"]["display_name"] == "Home Config Operator"
+
+
+def test_runtime_config_falls_back_to_public_defaults_without_user_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SPAGHETTI_CONFIG_PATH", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+    runtime_config = get_runtime_config()
+
+    assert runtime_config["app"]["name"] == "Spaghetti Desk"
+
+
+def test_explicit_config_path_takes_precedence_over_user_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user_config = tmp_path / "spaghetti-desk" / "config.yaml"
+    user_config.parent.mkdir()
+    user_config.write_text("operator:\n  display_name: Home Operator\n", encoding="utf-8")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+    explicit_config = tmp_path / "explicit.yaml"
+    explicit_config.write_text("operator:\n  display_name: Explicit Operator\n", encoding="utf-8")
+    _select_config(explicit_config, monkeypatch)
+
+    runtime_config = get_runtime_config()
+
+    assert runtime_config["operator"]["display_name"] == "Explicit Operator"
+
+
 def test_runtime_config_reports_invalid_yaml(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

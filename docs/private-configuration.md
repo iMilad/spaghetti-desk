@@ -6,7 +6,7 @@ and collected inventory in separate places.
 | Information | Location |
 | --- | --- |
 | Public-safe defaults and examples | `config/config.example.yaml` |
-| Private URLs, filters, schedules, and mappings | `config/local.yaml` or an external private YAML file |
+| Private URLs, filters, schedules, and mappings | `~/.config/spaghetti-desk/config.yaml`, an explicit private YAML file, or the Docker-mounted `config/local.yaml` |
 | Usernames, tokens, and passwords | Environment variables loaded from an ignored `.env` or a secret manager |
 | Collected pipelines and future inventory | PostgreSQL |
 
@@ -16,10 +16,16 @@ collector discovered.
 
 ## How Configuration Is Loaded
 
-The backend always loads `config/config.example.yaml` first. If
-`SPAGHETTI_CONFIG_PATH` points to another file, that private file is deeply
-merged over the public defaults. A private file can therefore contain only the
-settings that differ from the defaults.
+The backend always loads `config/config.example.yaml` first, then selects a
+private override in this order:
+
+1. The file explicitly named by `SPAGHETTI_CONFIG_PATH`.
+2. The user config file at `~/.config/spaghetti-desk/config.yaml` when present.
+3. No private override; public defaults remain active.
+
+`XDG_CONFIG_HOME` is honored on Unix-like systems. On Windows, the application
+data directory is used. The selected private file is deeply merged over the
+public defaults, so it only needs to contain settings that differ.
 
 Configuration is validated and cached at backend startup. Restart the backend
 after changing YAML or environment variables. Missing files, invalid YAML,
@@ -32,6 +38,20 @@ configure the names of environment variables with settings such as
 `username_env` and `token_env`; put their values only in the environment.
 
 ## Local Development With Private Settings
+
+For a backend running directly on your computer, create the user config once:
+
+```bash
+mkdir -p ~/.config/spaghetti-desk
+cp config/private.example.yaml ~/.config/spaghetti-desk/config.yaml
+```
+
+Edit that `config.yaml`; no environment variable is required. You can still set
+`SPAGHETTI_CONFIG_PATH` when you need to select a different file explicitly.
+
+Docker containers cannot automatically read files from the host home directory.
+For Docker Compose development, use the repository's ignored local copy and
+mount it into the container:
 
 The repository contains public-safe templates. Create ignored local copies:
 
