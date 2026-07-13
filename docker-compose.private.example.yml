@@ -1,0 +1,12 @@
+# Public-safe development override for config/local.yaml and local credentials.
+# Use with docker-compose.yml; do not put credential values in this file.
+
+services:
+  backend:
+    environment:
+      SPAGHETTI_CONFIG_PATH: /app/config/local.yaml
+      SPAGHETTI_OPERATOR_ID: ${SPAGHETTI_OPERATOR_ID:-local-operator}
+      SPAGHETTI_OPERATOR_DISPLAY_NAME: ${SPAGHETTI_OPERATOR_DISPLAY_NAME:-Local Operator}
+      SPAGHETTI_OPERATOR_ROLE: ${SPAGHETTI_OPERATOR_ROLE:-admin}
+      JENKINS_USERNAME: ${JENKINS_USERNAME:-}
+      JENKINS_TOKEN: ${JENKINS_TOKEN:-}

@@ -1,0 +1,31 @@
+# Public-safe template for a private deployment override.
+# Copy this file to config/local.yaml and replace example values locally.
+# config/local.yaml is ignored by Git and must never be committed.
+
+operator:
+  id: local-operator
+  display_name: Local Operator
+  role: admin
+
+collectors:
+  enabled: false
+  # Keep this false for the first connectivity check.
+  write_to_local_inventory: false
+  plugins:
+    jenkins:
+      enabled: false
+      interval_seconds: 300
+      # Environment references such as ${JENKINS_URL} are not expanded here.
+      # Put the real non-secret URL directly in the ignored local.yaml file.
+      base_url: https://jenkins.example.invalid
+      username_env: JENKINS_USERNAME
+      token_env: JENKINS_TOKEN
+      job_include_patterns: []
+      default_owner_team: Unassigned
+      timeout_seconds: 10
+      verify_tls: true
+
+actions:
+  enabled: false
+  require_approval_by_default: true
+  audit_all_attempts: true

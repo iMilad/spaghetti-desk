@@ -54,20 +54,30 @@ image.
 ## Private Configuration
 
 The release image starts with public-safe demo configuration and does not
-contact external systems by default. A private deployment can mount an ignored
-configuration file through a local Compose override:
+contact external systems by default. Keep company deployment files in a
+separate private directory. A private Compose override can mount the private
+configuration and pass credential environment variables into the app:
 
 ```yaml
 services:
   app:
     environment:
       SPAGHETTI_CONFIG_PATH: /app/config/local.yaml
+      JENKINS_USERNAME: ${JENKINS_USERNAME:-}
+      JENKINS_TOKEN: ${JENKINS_TOKEN:-}
     volumes:
       - ./config/local.yaml:/app/config/local.yaml:ro
 ```
 
+The release image already contains the Jenkins collector plugin. Put the real
+non-secret Jenkins URL directly in private YAML and keep credential values in
+the private `.env` or a secret manager. YAML `${VAR}` references are not
+expanded by the application.
+
 Keep the override, real URLs, credentials, job filters, team mappings, and
-collected inventory outside the public repository.
+collected inventory outside the public repository. See
+[Private configuration](private-configuration.md) for the full loading and
+validation contract.
 
 ## Upgrade a Deployment
 

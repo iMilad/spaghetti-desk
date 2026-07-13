@@ -85,13 +85,18 @@ collectors:
     jenkins:
       enabled: true
       interval_seconds: 300
-      base_url: ${JENKINS_URL}
+      base_url: https://jenkins.example.invalid
       username_env: JENKINS_USERNAME
       token_env: JENKINS_TOKEN
       job_include_patterns:
         - "platform-*"
       default_owner_team: Platform
 ```
+
+Replace the example URL directly in private YAML. YAML values are not expanded,
+so `${JENKINS_URL}` is not supported. `username_env` and `token_env` contain the
+names of environment variables; the corresponding credential values belong in
+the backend process environment, never in YAML.
 
 The public `config/config.example.yaml` keeps Jenkins disabled and uses
 `jenkins.example.invalid`. Real Jenkins URLs, usernames, tokens, job patterns,
@@ -112,6 +117,9 @@ registry from installed plugin entry points, and starts the APScheduler runtime
 only when the global collector switch is enabled and at least one installed
 plugin is enabled. Public demo config keeps the switch off, so no scheduler is
 started and no external systems are contacted by default.
+
+Runtime configuration is validated once at startup and then cached. Restart the
+backend after changing private YAML or credential environment variables.
 
 Before starting scheduled jobs, the runtime verifies that the local collector
 read-model tables exist. If the database has not been initialized, startup

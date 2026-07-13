@@ -13,9 +13,11 @@ COPY backend/app /app/backend/app
 COPY backend/alembic.ini /app/backend/alembic.ini
 COPY backend/migrations /app/backend/migrations
 COPY examples /app/examples
+COPY plugins/jenkins /app/plugins/jenkins
 
 WORKDIR /app/backend
-RUN uv sync --locked --no-dev --all-extras
+RUN uv sync --locked --no-dev --all-extras \
+    && uv pip install --python .venv/bin/python /app/plugins/jenkins
 
 EXPOSE 8000
 

@@ -137,13 +137,31 @@ Collector plugins are optional Python packages discovered through the
 optional Jenkins collector, while public defaults keep every external
 integration disabled.
 
+For a local private configuration, copy the public-safe templates and edit only
+their ignored local copies:
+
+```bash
+cp config/private.example.yaml config/local.yaml
+cp .env.example .env
+docker compose \
+  --env-file .env \
+  --file docker-compose.yml \
+  --file docker-compose.private.example.yml \
+  up --build
+```
+
+Put non-secret endpoints, filters, and mappings in `config/local.yaml`. Put
+credential values only in `.env` or a secret manager. The development backend
+image already includes the Jenkins collector plugin.
+
 Create a new collector package from the project scaffold:
 
 ```bash
 scripts/scaffold-collector example-ci
 ```
 
-For Jenkins, install the included plugin into the backend environment:
+For a backend running directly on the host, install the included Jenkins plugin
+into that Python environment:
 
 ```bash
 cd backend
@@ -154,7 +172,8 @@ Enable collectors only from private deployment configuration outside this
 repository. Credentials are referenced through environment-variable names and
 must never be committed.
 
-See the [collector framework](docs/collectors.md) and the
+See [private configuration](docs/private-configuration.md), the
+[collector framework](docs/collectors.md), and the
 [collector plugin template](docs/collector-plugin-template.md) for the runtime
 contract and a complete example.
 
@@ -233,6 +252,7 @@ When `VITE_API_BASE_URL` is unset, the Vite development server proxies
 | [Architecture](docs/architecture.md) | Runtime boundaries and data flow |
 | [Modules](docs/modules.md) | Deployment-controlled navigation and widgets |
 | [Persistence](docs/persistence.md) | Database models, repositories, and migrations |
+| [Private configuration](docs/private-configuration.md) | Company overrides, secrets, and local Compose setup |
 | [Collectors](docs/collectors.md) | Plugin discovery, scheduling, and local writes |
 | [Action and audit](docs/action-audit.md) | Requests, decisions, sanitization, and evidence |
 | [Container releases](docs/container-release.md) | Docker Hub images, Compose deployment, and release setup |
