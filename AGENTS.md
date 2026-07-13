@@ -6,11 +6,13 @@ audited operations.
 
 ## Scope and Guardrails
 
-- Stay inside `/path/to/spaghetti_desk` unless the user
-  explicitly changes scope.
-- Treat `/path/to/reference-material` as read-only reference material. Do not edit
-  anything under it unless the user explicitly asks for that folder to be
-  changed.
+- Stay inside this repository unless the user explicitly changes scope.
+- Treat local assistant or reference folders outside this repository as
+  read-only reference material. Do not edit anything under them unless the user
+  explicitly asks for those folders to be changed.
+- Never inspect, list, search, scan, or read the user's home `.config`
+  directory or anything beneath it. Rely on user-provided feedback and command
+  output for configuration stored there.
 - Do not request persistent allow rules for `sudo`, destructive AWS operations,
   deploy or destroy commands, force-pushes, or recursive deletes. Require
   explicit per-action approval for those operations instead.
