@@ -137,32 +137,24 @@ Collector plugins are optional Python packages discovered through the
 optional Jenkins collector, while public defaults keep every external
 integration disabled.
 
-For a backend running directly on your computer, place private non-secret
-settings in the standard user config location:
+Run the local installer once:
 
 ```bash
-mkdir -p ~/.config/spaghetti-desk
-cp config/private.example.yaml ~/.config/spaghetti-desk/config.yaml
+scripts/install-local.py
 ```
 
-The backend discovers this file automatically. An explicit
-`SPAGHETTI_CONFIG_PATH` takes precedence.
+It safely creates `~/.config/spaghetti-desk/config.yaml` and a private
+`compose.env` that tells Docker where to mount it. Existing configuration is
+never overwritten. Edit `config.yaml`, then start the stack with the command
+printed by the installer:
 
-For Docker Compose, copy the public-safe templates into ignored repository
-files so Compose can mount them into the container:
-
-```bash
-cp config/private.example.yaml config/local.yaml
-cp .env.example .env
-docker compose \
-  --env-file .env \
-  --file docker-compose.yml \
-  --file docker-compose.private.example.yml \
-  up --build
+```console
+docker compose --env-file ~/.config/spaghetti-desk/compose.env up --build
 ```
 
-Put non-secret endpoints, filters, and mappings in `config/local.yaml`. Put
-credential values only in `.env` or a secret manager. The development backend
+Put non-secret endpoints, filters, and mappings in `config.yaml`. Credential
+values can be added to the private `compose.env` for now and should move to a
+secret manager when that integration is available. The development backend
 image already includes the Jenkins collector plugin.
 
 Create a new collector package from the project scaffold:

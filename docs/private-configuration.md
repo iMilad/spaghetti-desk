@@ -39,28 +39,42 @@ configure the names of environment variables with settings such as
 
 ## Local Development With Private Settings
 
-For a backend running directly on your computer, create the user config once:
+Run the installer from the repository root:
 
 ```bash
-mkdir -p ~/.config/spaghetti-desk
-cp config/private.example.yaml ~/.config/spaghetti-desk/config.yaml
+scripts/install-local.py
 ```
 
-Edit that `config.yaml`; no environment variable is required. You can still set
-`SPAGHETTI_CONFIG_PATH` when you need to select a different file explicitly.
+The installer:
 
-Docker containers cannot automatically read files from the host home directory.
-For Docker Compose development, use the repository's ignored local copy and
-mount it into the container:
+- Creates the platform user configuration directory when it is missing.
+- Copies the public-safe template to `config.yaml` only when that file does not
+  already exist.
+- Applies owner-only permissions on Unix and macOS.
+- Creates or updates `compose.env` with the absolute host path Docker must
+  mount, while preserving any other values already in that file.
 
-The repository contains public-safe templates. Create ignored local copies:
+On Unix and macOS the default directory is
+`~/.config/spaghetti-desk`. `XDG_CONFIG_HOME` is respected. Windows uses
+`%APPDATA%\SpaghettiDesk`.
+
+Edit the generated `config.yaml`, then use the exact start command printed by
+the installer. On Unix and macOS, the default command is:
 
 ```bash
-cp config/private.example.yaml config/local.yaml
-cp .env.example .env
+docker compose \
+  --env-file ~/.config/spaghetti-desk/compose.env \
+  up --build
 ```
 
-Edit `config/local.yaml` locally. For an initial Jenkins connectivity check:
+Compose mounts the selected host file read-only at `/app/config/config.yaml` in
+the backend and sets `SPAGHETTI_CONFIG_PATH` to that container path. Docker never
+needs direct access to the rest of the home configuration directory.
+
+You can still set `SPAGHETTI_CONFIG_PATH` when running the backend directly and
+need to select a different file explicitly.
+
+For an initial Jenkins connectivity check, edit the generated `config.yaml`:
 
 ```yaml
 collectors:
@@ -74,35 +88,34 @@ collectors:
       token_env: JENKINS_TOKEN
 ```
 
-Replace the example URL in the ignored file, then set the credential values in
-the ignored `.env`:
+Replace the example URL in the private file, then add the credential values to
+the generated private `compose.env`:
 
 ```dotenv
 JENKINS_USERNAME=replace-locally
 JENKINS_TOKEN=replace-locally
 ```
 
-Start the development stack with the public-safe Compose override:
+Start the development stack with the generated Docker settings:
 
 ```bash
 docker compose \
-  --env-file .env \
-  --file docker-compose.yml \
-  --file docker-compose.private.example.yml \
+  --env-file ~/.config/spaghetti-desk/compose.env \
   up --build
 ```
 
-The development backend image includes the Jenkins plugin. The override selects
-`/app/config/local.yaml` and passes the named credential variables to the
-backend without putting their values in Compose YAML.
+The development backend image includes the Jenkins plugin. Compose passes the
+named credential variables without putting their values in tracked Compose
+YAML.
 
 With `write_to_local_inventory: false`, the collector can contact Jenkins and
 report what it saw, but it does not write pipeline rows. After verifying the
 connection and filters, set it to `true` and restart the backend to populate the
 Pipeline Catalog.
 
-`config/local.yaml` and `.env` are ignored by Git. Check `git status` before
-every commit. Never force-add either file.
+The normal installer keeps both private files outside the repository. The
+legacy `config/local.yaml` and `.env` workflow remains ignored by Git. Check
+`git status` before every commit and never force-add private files.
 
 ## Private Deployment Directory
 

@@ -275,7 +275,8 @@ Before publishing or opening a pull request:
 
 - No real hostnames, IPs, usernames, emails, tokens, job names, or team mappings.
 - Use `.example.invalid` URLs in public examples.
-- Keep private config in `config/local.yaml` or another ignored deployment file.
+- Keep private config in `~/.config/spaghetti-desk/config.yaml` or another
+  private deployment file outside the public repository.
 - Keep company-specific plugins in a private repository unless they are fully
   sanitized.
 - Ensure normal UI/API page rendering reads local database state and does not

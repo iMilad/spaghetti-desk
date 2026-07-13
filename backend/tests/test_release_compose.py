@@ -8,6 +8,7 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RENDER_SCRIPT = PROJECT_ROOT / "scripts" / "render-release-compose.sh"
 DEVELOPMENT_DOCKERFILE = PROJECT_ROOT / "backend" / "Dockerfile"
+DEVELOPMENT_COMPOSE = PROJECT_ROOT / "docker-compose.yml"
 PRIVATE_COMPOSE_TEMPLATE = PROJECT_ROOT / "docker-compose.private.example.yml"
 
 
@@ -58,10 +59,26 @@ def test_development_backend_image_installs_included_jenkins_plugin() -> None:
     assert "uv pip install --python .venv/bin/python /app/plugins/jenkins" in dockerfile
 
 
+def test_development_compose_mounts_selected_host_config_read_only() -> None:
+    payload = yaml.safe_load(DEVELOPMENT_COMPOSE.read_text(encoding="utf-8"))
+    backend = payload["services"]["backend"]
+    config_volume = backend["volumes"][0]
+
+    assert backend["environment"]["SPAGHETTI_CONFIG_PATH"] == "/app/config/config.yaml"
+    assert config_volume["source"] == (
+        "${SPAGHETTI_CONFIG_HOST_PATH:-./config/config.example.yaml}"
+    )
+    assert config_volume["target"] == "/app/config/config.yaml"
+    assert config_volume["read_only"] is True
+
+
 def test_private_compose_template_selects_ignored_config_and_named_credentials() -> None:
     payload = yaml.safe_load(PRIVATE_COMPOSE_TEMPLATE.read_text(encoding="utf-8"))
-    environment = payload["services"]["backend"]["environment"]
+    backend = payload["services"]["backend"]
+    environment = backend["environment"]
 
-    assert environment["SPAGHETTI_CONFIG_PATH"] == "/app/config/local.yaml"
+    assert environment["SPAGHETTI_CONFIG_PATH"] == "/app/config/config.yaml"
     assert environment["JENKINS_USERNAME"] == "${JENKINS_USERNAME:-}"
     assert environment["JENKINS_TOKEN"] == "${JENKINS_TOKEN:-}"
+    assert backend["volumes"][0]["source"] == "./config/local.yaml"
+    assert backend["volumes"][0]["target"] == "/app/config/config.yaml"

@@ -1,6 +1,6 @@
 # Public-safe template for a private deployment override.
-# For a host backend, copy this to ~/.config/spaghetti-desk/config.yaml.
-# For Docker Compose, copy it to the ignored config/local.yaml mount source.
+# scripts/install-local.py copies this to the platform user config directory.
+# Docker Compose mounts that installed file read-only through compose.env.
 # Never commit the private copy.
 
 operator:
