@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from typing import Any, Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 FeatureModuleId = Literal[
     "services",
@@ -238,6 +238,135 @@ class CollectorPluginState(BaseModel):
 
 class CollectorStatusResponse(BaseModel):
     collectors: list[CollectorPluginState]
+
+
+class OperatorSettings(BaseModel):
+    id: str = Field(
+        min_length=1,
+        max_length=160,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:@-]*$",
+    )
+    display_name: str = Field(min_length=1, max_length=160)
+    role: str = Field(min_length=1, max_length=80)
+
+
+class JenkinsSettings(BaseModel):
+    enabled: bool
+    interval_seconds: int = Field(ge=10, le=86_400)
+    base_url: str = Field(max_length=500)
+    job_include_patterns: list[str] = Field(default_factory=list, max_length=100)
+    default_owner_team: str = Field(min_length=1, max_length=160)
+    timeout_seconds: float = Field(ge=1, le=120)
+    verify_tls: bool
+    username_configured: bool = False
+    token_configured: bool = False
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        if normalized and not normalized.startswith(("http://", "https://")):
+            raise ValueError("Jenkins URL must start with http:// or https://")
+        return normalized
+
+    @field_validator("job_include_patterns")
+    @classmethod
+    def normalize_patterns(cls, values: list[str]) -> list[str]:
+        return [value.strip() for value in values if value.strip()]
+
+
+class ActionsSettings(BaseModel):
+    enabled: bool
+    require_approval_by_default: bool
+    audit_all_attempts: bool
+
+
+class SettingsStorage(BaseModel):
+    writable: bool
+    source: str
+    message: str
+
+
+class SettingsResponse(BaseModel):
+    operator: OperatorSettings
+    collectors_enabled: bool
+    write_to_local_inventory: bool
+    jenkins: JenkinsSettings
+    actions: ActionsSettings
+    storage: SettingsStorage
+
+
+class JenkinsSettingsUpdate(BaseModel):
+    enabled: bool
+    interval_seconds: int = Field(ge=10, le=86_400)
+    base_url: str = Field(max_length=500)
+    job_include_patterns: list[str] = Field(default_factory=list, max_length=100)
+    default_owner_team: str = Field(min_length=1, max_length=160)
+    timeout_seconds: float = Field(ge=1, le=120)
+    verify_tls: bool
+    username: str | None = Field(default=None, max_length=320)
+    token: str | None = Field(default=None, max_length=4096)
+    clear_credentials: bool = False
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, value: str) -> str:
+        return JenkinsSettings.validate_base_url(value)
+
+    @field_validator("job_include_patterns")
+    @classmethod
+    def normalize_patterns(cls, values: list[str]) -> list[str]:
+        return JenkinsSettings.normalize_patterns(values)
+
+    @field_validator("username", "token")
+    @classmethod
+    def reject_multiline_secrets(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if "\n" in value or "\r" in value:
+            raise ValueError("Credentials cannot contain line breaks")
+        return value
+
+
+class SettingsUpdate(BaseModel):
+    operator: OperatorSettings
+    collectors_enabled: bool
+    write_to_local_inventory: bool
+    jenkins: JenkinsSettingsUpdate
+    actions: ActionsSettings
+
+
+class SettingsSaveResponse(BaseModel):
+    settings: SettingsResponse
+    message: str
+    collector_runtime_reloaded: bool
+
+
+class JenkinsConnectionTest(BaseModel):
+    base_url: str = Field(max_length=500)
+    timeout_seconds: float = Field(ge=1, le=120)
+    verify_tls: bool
+    username: str | None = Field(default=None, max_length=320)
+    token: str | None = Field(default=None, max_length=4096)
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, value: str) -> str:
+        normalized = JenkinsSettings.validate_base_url(value)
+        if not normalized or normalized.endswith(".example.invalid"):
+            raise ValueError("Enter your Jenkins URL before testing the connection")
+        return normalized
+
+    @field_validator("username", "token")
+    @classmethod
+    def reject_multiline_secrets(cls, value: str | None) -> str | None:
+        return JenkinsSettingsUpdate.reject_multiline_secrets(value)
+
+
+class ConnectionTestResponse(BaseModel):
+    success: bool
+    message: str
+    records_seen: int = 0
 
 
 class ServicePage(BaseModel):

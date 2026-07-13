@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,7 @@ from app.actions import (
     reject_action_request,
 )
 from app.collectors.plugins import list_collector_plugin_status
+from app.collectors.runtime import start_collector_runtime
 from app.config import get_app_config, get_current_operator, get_runtime_config
 from app.demo_data import get_inventory, get_inventory_summary
 from app.models import (
@@ -29,8 +30,10 @@ from app.models import (
     AppConfig,
     CollectorRunPage,
     CollectorStatusResponse,
+    ConnectionTestResponse,
     CurrentOperator,
     DashboardData,
+    JenkinsConnectionTest,
     License,
     LicensePage,
     PageMeta,
@@ -39,6 +42,9 @@ from app.models import (
     PipelinePage,
     Service,
     ServicePage,
+    SettingsResponse,
+    SettingsSaveResponse,
+    SettingsUpdate,
     VMPage,
 )
 from app.persistence.database import get_session
@@ -47,6 +53,12 @@ from app.persistence.repositories import (
     CollectorRunRepository,
     PageResult,
     PipelineRepository,
+)
+from app.settings import (
+    SettingsWriteError,
+    check_jenkins_connection,
+    read_settings,
+    save_settings,
 )
 
 router = APIRouter()
@@ -239,6 +251,106 @@ def _app_bootstrap(session: Session) -> AppBootstrap:
     )
 
 
+def _require_admin(operator: CurrentOperator) -> None:
+    if operator.role.casefold() != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an administrator can change integration settings.",
+        )
+
+
+def _start_settings_audit(
+    session: Session,
+    operator: CurrentOperator,
+    payload: SettingsUpdate,
+) -> ActionLog:
+    started_at = datetime.now(UTC)
+    action_log = build_action_log(
+        ActionRequestCreate(
+            action_type="settings.update",
+            target_system="spaghetti-desk",
+            target_type="configuration",
+            target_id="local-settings",
+            requested_by=operator.id,
+            summary="Update local operator, collector, integration, and action settings.",
+            risk_level="low",
+            requires_approval=False,
+            parameters={
+                "operator_id": payload.operator.id,
+                "collectors_enabled": payload.collectors_enabled,
+                "jenkins_enabled": payload.jenkins.enabled,
+                "inventory_writes": payload.write_to_local_inventory,
+                "credentials_supplied": bool(
+                    payload.jenkins.username is not None
+                    or payload.jenkins.token is not None
+                    or payload.jenkins.clear_credentials
+                ),
+            },
+        ),
+        requested_at=started_at,
+    ).model_copy(
+        update={
+            "execution_status": "running",
+            "started_at": started_at,
+            "result_summary": "Settings update validation passed; persistence started.",
+        }
+    )
+    try:
+        stored = ActionLogRepository(session).record_action_log(action_log)
+        session.commit()
+    except SQLAlchemyError as error:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Settings cannot be changed until the audit database is available.",
+        ) from error
+    return stored
+
+
+def _finish_settings_audit(
+    session: Session,
+    action_log: ActionLog,
+    *,
+    succeeded: bool,
+    result_summary: str,
+    after_state: dict[str, str],
+) -> None:
+    finished_at = datetime.now(UTC)
+    started_at = action_log.started_at or action_log.requested_at
+    duration_ms = max(0, int((finished_at - started_at).total_seconds() * 1000))
+    updated = action_log.model_copy(
+        update={
+            "execution_status": "succeeded" if succeeded else "failed",
+            "finished_at": finished_at,
+            "duration_ms": duration_ms,
+            "after_state": after_state,
+            "result_summary": result_summary,
+        }
+    )
+    try:
+        ActionLogRepository(session).record_action_log(updated)
+        session.commit()
+    except SQLAlchemyError as error:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Settings were processed, but their audit result could not be stored.",
+        ) from error
+
+
+def _reload_collector_runtime(request: Request) -> bool:
+    try:
+        replacement = start_collector_runtime(get_runtime_config())
+    except Exception:
+        return False
+
+    current = getattr(request.app.state, "collector_runtime", None)
+    if current is not None:
+        current.shutdown()
+    request.app.state.collector_runtime = replacement
+    return True
+
+
 @router.get("/summary")
 def read_summary():
     return get_inventory_summary()
@@ -252,6 +364,73 @@ def read_app_config():
 @router.get("/operator", response_model=CurrentOperator)
 def read_current_operator():
     return get_current_operator()
+
+
+@router.get("/settings", response_model=SettingsResponse)
+def read_managed_settings():
+    return read_settings()
+
+
+@router.post("/settings/test-jenkins", response_model=ConnectionTestResponse)
+def test_managed_jenkins_connection(
+    payload: JenkinsConnectionTest,
+    operator: Annotated[CurrentOperator, Depends(get_current_operator)],
+):
+    _require_admin(operator)
+    return check_jenkins_connection(payload)
+
+
+@router.post("/settings", response_model=SettingsSaveResponse)
+def update_managed_settings(
+    payload: SettingsUpdate,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    operator: Annotated[CurrentOperator, Depends(get_current_operator)],
+):
+    _require_admin(operator)
+    before = read_settings()
+    audit_log = _start_settings_audit(session, operator, payload)
+
+    try:
+        result = save_settings(payload)
+    except SettingsWriteError as error:
+        _finish_settings_audit(
+            session,
+            audit_log,
+            succeeded=False,
+            result_summary=str(error),
+            after_state={},
+        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+    runtime_reloaded = _reload_collector_runtime(request)
+    _finish_settings_audit(
+        session,
+        audit_log,
+        succeeded=True,
+        result_summary=(
+            "Settings saved and collector runtime reloaded."
+            if runtime_reloaded
+            else "Settings saved. Restart the backend to reload collectors."
+        ),
+        after_state={
+            "operator_id": result.settings.operator.id,
+            "collectors_enabled": str(result.settings.collectors_enabled),
+            "jenkins_enabled": str(result.settings.jenkins.enabled),
+            "inventory_writes": str(result.settings.write_to_local_inventory),
+            "credentials_changed": str(result.credentials_changed),
+            "previous_operator_id": before.operator.id,
+        },
+    )
+    return SettingsSaveResponse(
+        settings=result.settings,
+        message=(
+            "Settings saved and collectors reloaded."
+            if runtime_reloaded
+            else "Settings saved. Restart the backend to reload collectors."
+        ),
+        collector_runtime_reloaded=runtime_reloaded,
+    )
 
 
 @router.get("/bootstrap", response_model=AppBootstrap)

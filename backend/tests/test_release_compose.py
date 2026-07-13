@@ -59,17 +59,15 @@ def test_development_backend_image_installs_included_jenkins_plugin() -> None:
     assert "uv pip install --python .venv/bin/python /app/plugins/jenkins" in dockerfile
 
 
-def test_development_compose_mounts_selected_host_config_read_only() -> None:
+def test_development_compose_uses_public_config_directory_read_only() -> None:
     payload = yaml.safe_load(DEVELOPMENT_COMPOSE.read_text(encoding="utf-8"))
     backend = payload["services"]["backend"]
     config_volume = backend["volumes"][0]
 
-    assert backend["environment"]["SPAGHETTI_CONFIG_PATH"] == "/app/config/config.yaml"
-    assert config_volume["source"] == (
-        "${SPAGHETTI_CONFIG_HOST_PATH:-./config/config.example.yaml}"
+    assert backend["environment"]["SPAGHETTI_CONFIG_PATH"] == (
+        "/app/config/config.example.yaml"
     )
-    assert config_volume["target"] == "/app/config/config.yaml"
-    assert config_volume["read_only"] is True
+    assert config_volume == "./config:/app/config:ro"
 
 
 def test_private_compose_template_selects_ignored_config_and_named_credentials() -> None:

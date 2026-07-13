@@ -12,6 +12,7 @@ import { CollectorsPage } from "./collectors";
 import { defaultAppConfig, getEnabledNavigationItems } from "./moduleConfig";
 import type { AppConfig } from "./moduleConfig";
 import { OverviewPage } from "./overview";
+import { SettingsPage } from "./settings";
 import { DashboardFrame } from "./shell";
 import type { NavBadge, Screen } from "./shell";
 import {
@@ -30,8 +31,8 @@ import type {
   CurrentOperator,
   DashboardData,
 } from "./types";
-import { getDensity, getTheme, pipelineTone, setDensity, setTheme } from "./ui";
-import type { Density, Tone } from "./ui";
+import { getTheme, pipelineTone, setTheme } from "./ui";
+import type { Tone } from "./ui";
 
 type LoadState =
   | { status: "loading" }
@@ -109,6 +110,11 @@ export default function App() {
   }, [load]);
 
   const refresh = useCallback(() => void load("refresh"), [load]);
+  const updateOperator = useCallback((operator: CurrentOperator) => {
+    setState((current) =>
+      current.status === "ready" ? { ...current, operator } : current,
+    );
+  }, []);
   const decideActionRequest = useCallback(
     async (actionId: string, decision: ActionRequestDecisionKind) => {
       const updated =
@@ -150,6 +156,7 @@ export default function App() {
       theme={theme}
       onToggleTheme={toggleTheme}
       onRefresh={refresh}
+      onOperatorChanged={updateOperator}
       onDecideActionRequest={decideActionRequest}
     />
   );
@@ -163,6 +170,7 @@ export function Dashboard({
   theme: themeProp,
   onToggleTheme,
   onRefresh = () => undefined,
+  onOperatorChanged = () => undefined,
   onDecideActionRequest,
 }: {
   appConfig?: AppConfig;
@@ -172,6 +180,7 @@ export function Dashboard({
   theme?: "light" | "dark";
   onToggleTheme?: () => void;
   onRefresh?: () => void;
+  onOperatorChanged?: (operator: CurrentOperator) => void;
   onDecideActionRequest?: (
     actionId: string,
     decision: ActionRequestDecisionKind,
@@ -296,104 +305,15 @@ export function Dashboard({
         <CollectorsPage collectors={data.collectors} runs={data.collectorRuns} />
       ) : null}
       {activeScreen === "settings" ? (
-        <SettingsPage appConfig={appConfig} theme={theme} onToggleTheme={toggleTheme} />
+        <SettingsPage
+          appConfig={appConfig}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onOperatorChanged={onOperatorChanged}
+          onSettingsSaved={onRefresh}
+        />
       ) : null}
     </DashboardFrame>
-  );
-}
-
-/* --------------------------------------------------------------- settings */
-
-function SettingsPage({
-  appConfig,
-  theme,
-  onToggleTheme,
-}: {
-  appConfig: AppConfig;
-  theme: "light" | "dark";
-  onToggleTheme: () => void;
-}) {
-  const [density, setDensityValue] = useState<Density>(() => getDensity());
-  const modules = Object.values(appConfig.modules);
-
-  const chooseDensity = (value: Density) => {
-    setDensity(value);
-    setDensityValue(value);
-  };
-
-  return (
-    <section className="page" aria-label="Settings">
-      <div className="page-head">
-        <h1 className="page-head__title">Settings</h1>
-      </div>
-
-      <div style={{ display: "grid", gap: 12, maxWidth: 640 }}>
-        <article className="card">
-          <div className="panel__head">
-            <span className="panel__title">Appearance</span>
-          </div>
-          <div className="detail__body">
-            <div>
-              <div className="detail__section-label">Theme</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  className={`btn btn--md ${theme === "light" ? "btn--primary" : "btn--strong"}`}
-                  onClick={() => theme !== "light" && onToggleTheme()}
-                >
-                  Light
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn--md ${theme === "dark" ? "btn--primary" : "btn--strong"}`}
-                  onClick={() => theme !== "dark" && onToggleTheme()}
-                >
-                  Dark
-                </button>
-              </div>
-            </div>
-            <div>
-              <div className="detail__section-label">Table density</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {(["compact", "default", "relaxed"] as Density[]).map((value) => (
-                  <button
-                    type="button"
-                    key={value}
-                    className={`btn btn--md ${density === value ? "btn--primary" : "btn--strong"}`}
-                    onClick={() => chooseDensity(value)}
-                  >
-                    {value.charAt(0).toUpperCase() + value.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article className="card">
-          <div className="panel__head">
-            <span className="panel__title">Enabled modules</span>
-            <span className="panel__count mono">
-              {modules.filter((module) => module.enabled).length}
-            </span>
-          </div>
-          <div className="detail__body">
-            <dl className="detail__grid">
-              {modules.map((module) => (
-                <div key={module.id} style={{ display: "contents" }}>
-                  <dt>{module.label}</dt>
-                  <dd>{module.enabled ? "enabled" : "disabled"}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="detail__note">
-              Modules are controlled by deployment config (served from{" "}
-              <span className="mono">/api/v1/app-config</span>). Disabled modules do not render.
-            </div>
-          </div>
-        </article>
-      </div>
-    </section>
   );
 }
 

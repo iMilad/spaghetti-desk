@@ -4,6 +4,7 @@ import type {
   AppBootstrap,
   CollectorRun,
   CollectorStatusResponse,
+  ConnectionTestResponse,
   CurrentOperator,
   DashboardData,
   InventorySummary,
@@ -12,6 +13,10 @@ import type {
   Permission,
   Pipeline,
   Service,
+  JenkinsConnectionTest,
+  ManagedSettings,
+  SettingsSaveResponse,
+  SettingsUpdate,
   VM,
 } from "./types";
 import { normalizeAppConfig } from "./moduleConfig";
@@ -53,10 +58,16 @@ async function requestJson<T>(
 ): Promise<T> {
   try {
     return await requestJsonWithFetch<T>(method, path, payload);
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiResponseError) {
+      throw error;
+    }
     try {
       return await requestJsonWithXhr<T>(method, path, payload);
-    } catch {
+    } catch (fallbackError) {
+      if (fallbackError instanceof ApiResponseError) {
+        throw fallbackError;
+      }
       throw new Error(
         `Unable to reach inventory API for ${path}. Check that the backend is running.`,
       );
@@ -86,7 +97,7 @@ async function requestJsonWithFetch<T>(
   });
 
   if (!response.ok) {
-    throw new Error(`Request failed for ${path}: ${response.status} ${response.statusText}`);
+    throw new ApiResponseError(response.status, await responseMessage(response));
   }
 
   return response.json() as Promise<T>;
@@ -111,7 +122,7 @@ function requestJsonWithXhr<T>(
 
     request.onload = () => {
       if (request.status < 200 || request.status >= 300) {
-        reject(new Error(`Request failed for ${path}: ${request.status} ${request.statusText}`));
+        reject(new ApiResponseError(request.status, xhrResponseMessage(request)));
         return;
       }
 
@@ -125,6 +136,43 @@ function requestJsonWithXhr<T>(
     request.ontimeout = () => reject(new Error(`Request timed out for ${path}`));
     request.send(payload === undefined ? undefined : JSON.stringify(payload));
   });
+}
+
+export class ApiResponseError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+    this.name = "ApiResponseError";
+  }
+}
+
+async function responseMessage(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { detail?: unknown };
+    if (typeof body.detail === "string") {
+      return body.detail;
+    }
+    if (Array.isArray(body.detail) && body.detail.length > 0) {
+      const first = body.detail[0] as { msg?: unknown };
+      if (typeof first.msg === "string") {
+        return first.msg.replace(/^Value error, /, "");
+      }
+    }
+  } catch {
+    // Fall through to the HTTP status when the response is not JSON.
+  }
+  return `Request failed: ${response.status} ${response.statusText}`;
+}
+
+function xhrResponseMessage(request: XMLHttpRequest): string {
+  try {
+    const body = JSON.parse(request.responseText) as { detail?: unknown };
+    if (typeof body.detail === "string") {
+      return body.detail;
+    }
+  } catch {
+    // Fall through to the HTTP status when the response is not JSON.
+  }
+  return `Request failed: ${request.status} ${request.statusText}`;
 }
 
 function hasStandardRequestTransport(): boolean {
@@ -353,4 +401,20 @@ export function withActionSummaryCounts(
     failed_action_count: actionLogs.filter((action) => action.execution_status === "failed")
       .length,
   };
+}
+
+export async function fetchManagedSettings(): Promise<ManagedSettings> {
+  return getJson<ManagedSettings>("/api/v1/settings");
+}
+
+export async function saveManagedSettings(
+  payload: SettingsUpdate,
+): Promise<SettingsSaveResponse> {
+  return postJson<SettingsSaveResponse>("/api/v1/settings", payload);
+}
+
+export async function testJenkinsConnection(
+  payload: JenkinsConnectionTest,
+): Promise<ConnectionTestResponse> {
+  return postJson<ConnectionTestResponse>("/api/v1/settings/test-jenkins", payload);
 }

@@ -21,7 +21,7 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       SPAGHETTI_ENV: development
-      SPAGHETTI_CONFIG_PATH: /app/config/config.yaml
+      SPAGHETTI_CONFIG_PATH: /app/config/config.example.yaml
       SPAGHETTI_DEMO_DATA_DIR: /app/examples/demo-data
       SPAGHETTI_DATABASE_URL: postgresql+psycopg://spaghetti:spaghetti@postgres:5432/spaghetti
       JENKINS_USERNAME: ${JENKINS_USERNAME:-}
@@ -29,10 +29,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - type: bind
-        source: ${SPAGHETTI_CONFIG_HOST_PATH:-./config/config.example.yaml}
-        target: /app/config/config.yaml
-        read_only: true
+      - ./config:/app/config:ro
       - ./examples:/app/examples:ro
     depends_on:
       postgres:

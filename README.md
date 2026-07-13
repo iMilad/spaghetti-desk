@@ -143,19 +143,23 @@ Run the local installer once:
 scripts/install-local.py
 ```
 
-It safely creates `~/.config/spaghetti-desk/config.yaml` and a private
-`compose.env` that tells Docker where to mount it. Existing configuration is
-never overwritten. Edit `config.yaml`, then start the stack with the command
-printed by the installer:
+It safely creates the private configuration, credential environment, and Docker
+override files. Existing configuration and credentials are never overwritten.
+Start the stack with the exact command printed by the installer:
 
 ```console
-docker compose --env-file ~/.config/spaghetti-desk/compose.env up --build
+docker compose \
+  --env-file ~/.config/spaghetti-desk/compose.env \
+  --file docker-compose.yml \
+  --file ~/.config/spaghetti-desk/docker-compose.user.yml \
+  up --build
 ```
 
-Put non-secret endpoints, filters, and mappings in `config.yaml`. Credential
-values can be added to the private `compose.env` for now and should move to a
-secret manager when that integration is available. The development backend
-image already includes the Jenkins collector plugin.
+Open **Settings** in the app to configure the operator and Jenkins integration,
+test connectivity, and save. Non-secret values are written atomically to
+`config.yaml`; credentials are masked in the UI and written separately to the
+private `compose.env`. Every settings change is recorded in the audit log. The
+development backend image already includes the Jenkins collector plugin.
 
 Create a new collector package from the project scaffold:
 
@@ -171,9 +175,9 @@ cd backend
 uv pip install -e ../plugins/jenkins
 ```
 
-Enable collectors only from private deployment configuration outside this
-repository. Credentials are referenced through environment-variable names and
-must never be committed.
+The Settings UI is the normal configuration path. The generated files remain
+available for backup and advanced deployment automation, but must never be
+committed.
 
 See [private configuration](docs/private-configuration.md), the
 [collector framework](docs/collectors.md), and the

@@ -285,6 +285,7 @@ function NavItem({
     <button
       type="button"
       className={`nav__item ${active ? "is-active" : ""}`}
+      aria-label={meta.navLabel}
       aria-current={active ? "page" : undefined}
       onClick={() => onNavigate(screen)}
     >

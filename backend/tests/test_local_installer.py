@@ -25,16 +25,22 @@ def test_installer_creates_private_config_and_docker_environment(tmp_path: Path)
 
     config_path = config_dir / "config.yaml"
     compose_env_path = config_dir / "compose.env"
+    compose_override_path = config_dir / "docker-compose.user.yml"
     assert config_path.read_text(encoding="utf-8") == TEMPLATE.read_text(encoding="utf-8")
-    assert (
-        f'SPAGHETTI_CONFIG_HOST_PATH="{config_path.as_posix()}"'
-        in compose_env_path.read_text(encoding="utf-8")
-    )
+    compose_environment = compose_env_path.read_text(encoding="utf-8")
+    assert "JENKINS_USERNAME=" in compose_environment
+    assert "JENKINS_TOKEN=" in compose_environment
+    compose_override = compose_override_path.read_text(encoding="utf-8")
+    assert f'source: "{config_dir.as_posix()}"' in compose_override
+    assert "target: /app/user-config" in compose_override
+    assert "SPAGHETTI_CONFIG_WRITABLE: \"true\"" in compose_override
     assert "(created)" in result.stdout
+    assert f'--file "{compose_override_path.as_posix()}"' in result.stdout
     if os.name != "nt":
         assert config_dir.stat().st_mode & 0o777 == 0o700
         assert config_path.stat().st_mode & 0o777 == 0o600
         assert compose_env_path.stat().st_mode & 0o777 == 0o600
+        assert compose_override_path.stat().st_mode & 0o777 == 0o600
 
 
 def test_installer_never_overwrites_existing_config_or_other_env_values(
@@ -48,7 +54,7 @@ def test_installer_never_overwrites_existing_config_or_other_env_values(
     if os.name != "nt":
         config_path.chmod(0o644)
     compose_env_path.write_text(
-        "JENKINS_TOKEN=keep-this-value\nSPAGHETTI_CONFIG_HOST_PATH=old\n",
+        "JENKINS_TOKEN=keep-this-value\nCUSTOM_SECRET=keep-this-too\n",
         encoding="utf-8",
     )
 
@@ -57,8 +63,7 @@ def test_installer_never_overwrites_existing_config_or_other_env_values(
     assert config_path.read_text(encoding="utf-8") == "operator:\n  display_name: Kept\n"
     compose_environment = compose_env_path.read_text(encoding="utf-8")
     assert "JENKINS_TOKEN=keep-this-value" in compose_environment
-    assert "SPAGHETTI_CONFIG_HOST_PATH=old" not in compose_environment
-    assert f'SPAGHETTI_CONFIG_HOST_PATH="{config_path.as_posix()}"' in compose_environment
+    assert "CUSTOM_SECRET=keep-this-too" in compose_environment
     assert "(kept existing)" in result.stdout
     if os.name != "nt":
         assert config_path.stat().st_mode & 0o777 == 0o600

@@ -192,3 +192,72 @@ export type AppBootstrap = {
   dashboard: DashboardData;
   operator: CurrentOperator;
 };
+
+export type OperatorSettings = {
+  id: string;
+  display_name: string;
+  role: string;
+};
+
+export type JenkinsSettings = {
+  enabled: boolean;
+  interval_seconds: number;
+  base_url: string;
+  job_include_patterns: string[];
+  default_owner_team: string;
+  timeout_seconds: number;
+  verify_tls: boolean;
+  username_configured: boolean;
+  token_configured: boolean;
+};
+
+export type ActionsSettings = {
+  enabled: boolean;
+  require_approval_by_default: boolean;
+  audit_all_attempts: boolean;
+};
+
+export type ManagedSettings = {
+  operator: OperatorSettings;
+  collectors_enabled: boolean;
+  write_to_local_inventory: boolean;
+  jenkins: JenkinsSettings;
+  actions: ActionsSettings;
+  storage: {
+    writable: boolean;
+    source: string;
+    message: string;
+  };
+};
+
+export type SettingsUpdate = {
+  operator: OperatorSettings;
+  collectors_enabled: boolean;
+  write_to_local_inventory: boolean;
+  jenkins: Omit<JenkinsSettings, "username_configured" | "token_configured"> & {
+    username?: string;
+    token?: string;
+    clear_credentials?: boolean;
+  };
+  actions: ActionsSettings;
+};
+
+export type SettingsSaveResponse = {
+  settings: ManagedSettings;
+  message: string;
+  collector_runtime_reloaded: boolean;
+};
+
+export type JenkinsConnectionTest = {
+  base_url: string;
+  timeout_seconds: number;
+  verify_tls: boolean;
+  username?: string;
+  token?: string;
+};
+
+export type ConnectionTestResponse = {
+  success: boolean;
+  message: string;
+  records_seen: number;
+};

@@ -46,6 +46,19 @@ def _configured_config_path() -> Path:
     return _default_config_path()
 
 
+def get_config_path() -> Path:
+    """Return the selected runtime configuration file without reading it."""
+    return _configured_config_path()
+
+
+def get_default_config_path() -> Path:
+    return _default_config_path()
+
+
+def get_user_config_path() -> Path:
+    return _user_config_path()
+
+
 def _read_yaml(path: Path) -> dict[str, Any]:
     try:
         content = path.read_text(encoding="utf-8")

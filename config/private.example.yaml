@@ -1,6 +1,6 @@
 # Public-safe template for a private deployment override.
 # scripts/install-local.py copies this to the platform user config directory.
-# Docker Compose mounts that installed file read-only through compose.env.
+# Docker Compose mounts the dedicated private directory for the Settings writer.
 # Never commit the private copy.
 
 operator:
@@ -17,7 +17,7 @@ collectors:
       enabled: false
       interval_seconds: 300
       # Environment references such as ${JENKINS_URL} are not expanded here.
-      # Put the real non-secret URL directly in the ignored local.yaml file.
+      # The Settings page writes the real non-secret URL to private config.yaml.
       base_url: https://jenkins.example.invalid
       username_env: JENKINS_USERNAME
       token_env: JENKINS_TOKEN
